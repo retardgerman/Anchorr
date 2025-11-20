@@ -252,6 +252,8 @@ export async function handleJellyfinWebhook(req, res, client) {
     if (!data || !data.ItemId) return res.status(400).send("No valid data");
 
     // Check if this item is from an excluded library
+    // The 'Library' field in the webhook payload contains the library name
+    // Note: Ensure "Send All Properties" is enabled in Jellyfin webhook settings
     const excludedLibraries = process.env.EXCLUDED_JELLYFIN_LIBRARIES;
     if (excludedLibraries && data.Library) {
       try {
