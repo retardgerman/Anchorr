@@ -251,6 +251,25 @@ export async function handleJellyfinWebhook(req, res, client) {
     const data = req.body;
     if (!data || !data.ItemId) return res.status(400).send("No valid data");
 
+    // Check if this item is from an excluded library
+    const excludedLibraries = process.env.EXCLUDED_JELLYFIN_LIBRARIES;
+    if (excludedLibraries && data.Library) {
+      try {
+        // Parse excluded libraries (stored as JSON array string in config)
+        const excludedList = typeof excludedLibraries === 'string' 
+          ? JSON.parse(excludedLibraries) 
+          : excludedLibraries;
+        
+        if (Array.isArray(excludedList) && excludedList.includes(data.Library)) {
+          console.log(`Skipping notification for item "${data.Name}" from excluded library: ${data.Library}`);
+          return res.status(200).send(`OK: Skipped (excluded library: ${data.Library})`);
+        }
+      } catch (parseError) {
+        console.error("Error parsing EXCLUDED_JELLYFIN_LIBRARIES:", parseError);
+        // Continue with normal processing if parsing fails
+      }
+    }
+
     if (data.ItemType === "Movie") {
       await processAndSendNotification(data, client);
       return res.status(200).send("OK: Movie notification sent.");

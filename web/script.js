@@ -13,11 +13,19 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const testJellyfinBtn = document.getElementById("test-jellyfin-btn");
   const testJellyfinStatus = document.getElementById("test-jellyfin-status");
+  const fetchLibrariesBtn = document.getElementById("fetch-libraries-btn");
+  const fetchLibrariesStatus = document.getElementById("fetch-libraries-status");
+  const librariesContainer = document.getElementById("libraries-container");
+  const librariesList = document.getElementById("libraries-list");
+  
   // Create toast element dynamically
   const toast = document.createElement("div");
   toast.id = "toast";
   toast.className = "toast";
   document.body.appendChild(toast);
+  
+  // Store fetched libraries
+  let availableLibraries = [];
 
   // --- Functions ---
 
@@ -35,6 +43,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const config = await response.json();
+      
+      // Store config temporarily for library filtering
+      localStorage.setItem("tempConfig", JSON.stringify(config));
+      
       for (const key in config) {
         const input = document.getElementById(key);
         if (!input) continue;
@@ -45,6 +57,12 @@ document.addEventListener("DOMContentLoaded", () => {
           input.value = config[key];
         }
       }
+      
+      // If libraries are already loaded, update their checkboxes with config values
+      if (availableLibraries.length > 0) {
+        displayLibraries();
+      }
+      
       updateWebhookUrl();
     } catch (error) {
       console.error("Error fetching config:", error);
@@ -93,16 +111,100 @@ document.addEventListener("DOMContentLoaded", () => {
     webhookUrlElement.textContent = `http://${host}:${port}/jellyfin-webhook`;
   }
 
+  // Fetch available Jellyfin libraries
+  async function fetchJellyfinLibraries() {
+    fetchLibrariesBtn.disabled = true;
+    fetchLibrariesStatus.textContent = "Loading...";
+    fetchLibrariesStatus.style.color = "var(--text)";
+
+    try {
+      const response = await fetch("/api/jellyfin-libraries");
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        availableLibraries = result.libraries;
+        displayLibraries();
+        fetchLibrariesStatus.textContent = `Found ${availableLibraries.length} libraries`;
+        fetchLibrariesStatus.style.color = "var(--green)";
+      } else {
+        throw new Error(result.message || "Failed to fetch libraries");
+      }
+    } catch (error) {
+      fetchLibrariesStatus.textContent = error.message || "Failed to load libraries";
+      fetchLibrariesStatus.style.color = "#f38ba8"; // Red
+      console.error("Error fetching libraries:", error);
+    } finally {
+      fetchLibrariesBtn.disabled = false;
+    }
+  }
+
+  // Display library checkboxes
+  function displayLibraries() {
+    if (availableLibraries.length === 0) {
+      librariesContainer.style.display = "none";
+      return;
+    }
+
+    // Get currently excluded libraries from config
+    const excludedLibraries = getExcludedLibraries();
+
+    librariesList.innerHTML = "";
+    librariesContainer.style.display = "block";
+
+    availableLibraries.forEach((library) => {
+      const checkboxWrapper = document.createElement("div");
+      checkboxWrapper.style.cssText = "display: flex; align-items: center; gap: 0.5rem;";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = `lib-${library.id}`;
+      checkbox.value = library.name;
+      checkbox.className = "library-checkbox";
+      // Check if this library is in the excluded list
+      checkbox.checked = excludedLibraries.includes(library.name);
+
+      const label = document.createElement("label");
+      label.htmlFor = `lib-${library.id}`;
+      label.textContent = library.name;
+      label.style.cursor = "pointer";
+
+      checkboxWrapper.appendChild(checkbox);
+      checkboxWrapper.appendChild(label);
+      librariesList.appendChild(checkboxWrapper);
+    });
+  }
+
+  // Get excluded libraries from config (helper function)
+  function getExcludedLibraries() {
+    try {
+      const config = JSON.parse(localStorage.getItem("tempConfig") || "{}");
+      if (Array.isArray(config.EXCLUDED_JELLYFIN_LIBRARIES)) {
+        return config.EXCLUDED_JELLYFIN_LIBRARIES;
+      }
+    } catch (e) {
+      console.error("Error parsing excluded libraries:", e);
+    }
+    return [];
+  }
+
   // --- Event Listeners ---
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const formData = new FormData(form);
     const config = Object.fromEntries(formData.entries());
-    // Explicitly capture checkbox values as "true"/"false"
-    document.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+    
+    // Explicitly capture checkbox values as "true"/"false" (excluding library checkboxes)
+    document.querySelectorAll('input[type="checkbox"]:not(.library-checkbox)').forEach((cb) => {
       config[cb.id] = cb.checked ? "true" : "false";
     });
+
+    // Collect excluded libraries from checkboxes
+    const excludedLibraries = [];
+    document.querySelectorAll('.library-checkbox:checked').forEach((cb) => {
+      excludedLibraries.push(cb.value);
+    });
+    config.EXCLUDED_JELLYFIN_LIBRARIES = excludedLibraries;
 
     try {
       const response = await fetch("/api/save-config", {
@@ -112,6 +214,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const result = await response.json();
       showToast(result.message);
+      // Update local storage with new config
+      localStorage.setItem("tempConfig", JSON.stringify(config));
     } catch (error) {
       console.error("Error saving config:", error);
       showToast("Error saving configuration.");
@@ -176,6 +280,11 @@ document.addEventListener("DOMContentLoaded", () => {
     navigator.clipboard.writeText(webhookUrlElement.textContent);
     showToast("Webhook URL copied to clipboard!");
   });
+
+  // Fetch Jellyfin libraries
+  if (fetchLibrariesBtn) {
+    fetchLibrariesBtn.addEventListener("click", fetchJellyfinLibraries);
+  }
 
   // Test Jellyseerr Connection
   if (testJellyseerrBtn) {

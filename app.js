@@ -103,7 +103,12 @@ function loadConfig() {
       const config = JSON.parse(rawData);
       // Load config into process.env for compatibility with existing code
       for (const [key, value] of Object.entries(config)) {
-        process.env[key] = value;
+        // Convert arrays and objects to JSON strings for process.env
+        if (typeof value === 'object' && value !== null) {
+          process.env[key] = JSON.stringify(value);
+        } else {
+          process.env[key] = value;
+        }
       }
       return true;
     } catch (error) {
@@ -959,6 +964,45 @@ function configureWebServer() {
       res.status(500).json({
         success: false,
         message: "Connection failed. Check URL and network.",
+      });
+    }
+  });
+
+  // Fetch Jellyfin libraries for filtering
+  app.get("/api/jellyfin-libraries", async (req, res) => {
+    const jellyfinUrl = process.env.JELLYFIN_BASE_URL;
+    
+    if (!jellyfinUrl) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Jellyfin URL not configured." 
+      });
+    }
+
+    try {
+      // Fetch libraries from Jellyfin server
+      // Note: Public endpoint doesn't require authentication
+      const librariesUrl = `${jellyfinUrl.replace(/\/$/, "")}/Library/VirtualFolders`;
+      const response = await axios.get(librariesUrl, { 
+        timeout: 8000,
+        // If authentication is needed in future, add headers here
+      });
+
+      if (Array.isArray(response.data)) {
+        // Extract library names from the response
+        const libraries = response.data.map(lib => ({
+          name: lib.Name,
+          id: lib.ItemId || lib.Name // Use ItemId if available, fallback to Name
+        }));
+        return res.json({ success: true, libraries });
+      }
+      
+      throw new Error("Invalid response from Jellyfin server.");
+    } catch (error) {
+      console.error("Failed to fetch Jellyfin libraries:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch libraries. Check Jellyfin URL and ensure server is accessible.",
       });
     }
   });

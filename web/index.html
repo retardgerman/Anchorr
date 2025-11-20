@@ -343,6 +343,32 @@
                         </div>
                       </div>
 
+                      <!-- Library Filtering Section -->
+                      <div class="form-group" style="margin-top: 1.5rem;">
+                        <label>Excluded Libraries</label>
+                        <div class="form-text" style="margin-bottom: 0.75rem;">
+                          Select which Jellyfin libraries to exclude from webhook notifications. Events from these libraries will be ignored.
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;">
+                          <button type="button" id="fetch-libraries-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                            Load Libraries
+                          </button>
+                          <span id="fetch-libraries-status" style="font-size: 0.9rem;"></span>
+                        </div>
+                        <div id="libraries-container" style="display: none; margin-top: 0.75rem;">
+                          <div id="libraries-list" style="
+                            display: grid; 
+                            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+                            gap: 0.5rem;
+                            padding: 0.75rem;
+                            background-color: rgba(0, 0, 0, 0.2);
+                            border-radius: 8px;
+                          ">
+                            <!-- Library checkboxes will be populated here by JavaScript -->
+                          </div>
+                        </div>
+                      </div>
+
                       <div id="webhook-section" class="webhook-box" style="margin-top: 1rem;">
                         <h3 class="webhook-title">Your Jellyfin Webhook URL</h3>
                         <div class="webhook-content">

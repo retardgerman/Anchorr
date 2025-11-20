@@ -12,4 +12,5 @@ export const configTemplate = {
   WEBHOOK_PORT: "8282",
   AUTO_START_BOT: "true",
   DEBUG: "false",
+  EXCLUDED_JELLYFIN_LIBRARIES: [],
 };
