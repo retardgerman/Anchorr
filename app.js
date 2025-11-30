@@ -4,7 +4,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import { handleJellyfinWebhook } from "./jellyfinWebhook.js";
-import { configTemplate } from "./config/config.js";
+import { configTemplate } from "./lib/config.js";
 import axios from "axios";
 
 import {
@@ -30,7 +30,7 @@ import {
   userMappingSchema,
 } from "./utils/validation.js";
 import cache from "./utils/cache.js";
-import { COLORS, TIMEOUTS } from "./config/constants.js";
+import { COLORS, TIMEOUTS } from "./lib/constants.js";
 import {
   login,
   register,
@@ -565,6 +565,16 @@ async function startBot() {
 
   // ----------------- COMMON SEARCH LOGIC -----------------
   async function handleSearchOrRequest(interaction, rawInput, mode, tags = []) {
+    // IMPORTANT: Defer reply FIRST to prevent timeout
+    const isPrivateMode = process.env.PRIVATE_MESSAGE_MODE === "true";
+
+    try {
+      await interaction.deferReply({ ephemeral: isPrivateMode });
+    } catch (err) {
+      logger.error(`Failed to defer reply: ${err.message}`);
+      return;
+    }
+
     let tmdbId, mediaType;
 
     // Check if input is direct ID (format: "12345|movie")
@@ -583,15 +593,18 @@ async function startBot() {
     }
 
     if (!tmdbId || !mediaType) {
-      return interaction.reply({
-        content: "⚠️ The title seems to be invalid.",
-        flags: 64,
-      });
+      if (isPrivateMode) {
+        return interaction.editReply({
+          content: "⚠️ The title seems to be invalid.",
+        });
+      } else {
+        await interaction.deleteReply();
+        return interaction.followUp({
+          content: "⚠️ The title seems to be invalid.",
+          flags: 64,
+        });
+      }
     }
-
-    // Always start with ephemeral for safety (errors/info messages should always be ephemeral)
-    // Success messages will be handled separately based on PRIVATE_MESSAGE_MODE
-    await interaction.deferReply({ ephemeral: true });
 
     try {
       const details = await tmdbApi.tmdbGetDetails(
@@ -617,6 +630,20 @@ async function startBot() {
             components: [],
             embeds: [],
           });
+          if (isPrivateMode) {
+            await interaction.editReply({
+              content: "✅ This content is already available in your library!",
+              components: [],
+              embeds: [],
+            });
+          } else {
+            // Delete public message and send ephemeral info
+            await interaction.deleteReply();
+            await interaction.followUp({
+              content: "✅ This content is already available in your library!",
+              flags: 64,
+            });
+          }
           return;
         }
 
@@ -746,25 +773,26 @@ async function startBot() {
         }
       }
 
-      // Success message - check if should be public or ephemeral
-      const isPrivateMode = process.env.PRIVATE_MESSAGE_MODE === "true";
-
-      if (isPrivateMode) {
-        // Keep it ephemeral
-        await interaction.editReply({ embeds: [embed], components });
-      } else {
-        // Delete ephemeral reply and send public message
-        await interaction.deleteReply();
-        await interaction.followUp({ embeds: [embed], components, ephemeral: false });
-      }
+      // Success - just edit the original reply directly (already public or ephemeral based on mode)
+      await interaction.editReply({ embeds: [embed], components });
     } catch (err) {
       logger.error("Error in handleSearchOrRequest:", err);
-      // Error messages are always ephemeral - handled by deferReply with ephemeral: true
-      await interaction.editReply({
-        content: "⚠️ An error occurred.",
-        components: [],
-        embeds: [],
-      });
+      // Error messages should always be ephemeral
+      if (isPrivateMode) {
+        // Already ephemeral, just edit
+        await interaction.editReply({
+          content: "⚠️ An error occurred.",
+          components: [],
+          embeds: [],
+        });
+      } else {
+        // Was public, delete and send ephemeral error
+        await interaction.deleteReply();
+        await interaction.followUp({
+          content: "⚠️ An error occurred.",
+          flags: 64,
+        });
+      }
     }
   }
 
@@ -899,80 +927,93 @@ async function startBot() {
             .filter((r) => r.media_type === "movie" || r.media_type === "tv")
             .slice(0, 25);
 
-          const choicePromises = filtered.map(async (item) => {
-            try {
-              const emoji = item.media_type === "movie" ? "🎬" : "📺";
-              const date = item.release_date || item.first_air_date || "";
-              const year = date ? ` (${date.slice(0, 4)})` : "";
+          // Fetch details for each result to get director/creator and runtime/seasons
+          const detailedChoices = await Promise.all(
+            filtered.map(async (item) => {
+              try {
+                const details = await tmdbApi.tmdbGetDetails(
+                  item.id,
+                  item.media_type,
+                  TMDB_API_KEY
+                );
 
-              // Fetch detailed info from TMDB
-              const details = await tmdbApi.tmdbGetDetails(
-                item.id,
-                item.media_type,
-                TMDB_API_KEY
-              );
+                const emoji = item.media_type === "movie" ? "🎬" : "📺";
+                const date = item.release_date || item.first_air_date || "";
+                const year = date ? ` (${date.slice(0, 4)})` : "";
+                
+                let extraInfo = "";
+                if (item.media_type === "movie") {
+                  // Get director from credits
+                  const director = details.credits?.crew?.find(
+                    (c) => c.job === "Director"
+                  );
+                  const directorName = director ? director.name : null;
+                  
+                  // Get runtime
+                  const runtime = details.runtime;
+                  const hours = runtime ? Math.floor(runtime / 60) : 0;
+                  const minutes = runtime ? runtime % 60 : 0;
+                  const runtimeStr = runtime
+                    ? `${hours}h ${minutes}m`
+                    : null;
+                  
+                  if (directorName && runtimeStr) {
+                    extraInfo = ` — directed by ${directorName} — runtime: ${runtimeStr}`;
+                  } else if (directorName) {
+                    extraInfo = ` — directed by ${directorName}`;
+                  } else if (runtimeStr) {
+                    extraInfo = ` — runtime: ${runtimeStr}`;
+                  }
+                } else {
+                  // TV show - get creator and season count
+                  const creator = details.created_by?.[0]?.name;
+                  const seasonCount = details.number_of_seasons;
+                  const seasonStr = seasonCount
+                    ? `${seasonCount} season${seasonCount > 1 ? "s" : ""}`
+                    : null;
+                  
+                  if (creator && seasonStr) {
+                    extraInfo = ` — created by ${creator} — ${seasonStr}`;
+                  } else if (creator) {
+                    extraInfo = ` — created by ${creator}`;
+                  } else if (seasonStr) {
+                    extraInfo = ` — ${seasonStr}`;
+                  }
+                }
 
-              let extraInfo = "";
+                let fullName = `${emoji} ${item.title || item.name}${year}${extraInfo}`;
+                
+                // Truncate if too long (Discord limit is 100 chars)
+                if (fullName.length > 98) {
+                  fullName = fullName.substring(0, 95) + "...";
+                }
 
-              if (item.media_type === "movie") {
-                // Get director
-                const director = details.credits?.crew?.find(
-                  (c) => c.job === "Director"
-                )?.name;
-                if (director) {
-                  extraInfo += ` — directed by ${director}`;
+                return {
+                  name: fullName,
+                  value: `${item.id}|${item.media_type}`,
+                };
+              } catch (err) {
+                // Fallback to basic info if details fetch fails
+                logger.debug(
+                  `Failed to fetch details for ${item.id}:`,
+                  err?.message
+                );
+                const emoji = item.media_type === "movie" ? "🎬" : "📺";
+                const date = item.release_date || item.first_air_date || "";
+                const year = date ? ` (${date.slice(0, 4)})` : "";
+                let basicName = `${emoji} ${item.title || item.name}${year}`;
+                if (basicName.length > 98) {
+                  basicName = basicName.substring(0, 95) + "...";
                 }
-                // Get runtime
-                if (details.runtime) {
-                  const hours = Math.floor(details.runtime / 60);
-                  const mins = details.runtime % 60;
-                  const runtime = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-                  extraInfo += ` — runtime: ${runtime}`;
-                }
-              } else if (item.media_type === "tv") {
-                // Get creator
-                const creator = details.created_by?.[0]?.name;
-                if (creator) {
-                  extraInfo += ` — created by ${creator}`;
-                }
-                // Get seasons count
-                if (details.number_of_seasons) {
-                  const seasons = details.number_of_seasons;
-                  extraInfo += ` — ${seasons} season${seasons > 1 ? "s" : ""}`;
-                }
+                return {
+                  name: basicName,
+                  value: `${item.id}|${item.media_type}`,
+                };
               }
+            })
+          );
 
-              let fullName = `${emoji} ${
-                item.title || item.name
-              }${year}${extraInfo}`;
-
-              // Discord requires choice names to be 1-100 characters
-              // Keep it safe at 98 and add ... within that limit if needed
-              if (fullName.length > 98) {
-                fullName = fullName.substring(0, 95) + "...";
-              }
-
-              return {
-                name: fullName,
-                value: `${item.id}|${item.media_type}`,
-              };
-            } catch (e) {
-              // Fallback to basic info if details fetch fails
-              const emoji = item.media_type === "movie" ? "🎬" : "📺";
-              const date = item.release_date || item.first_air_date || "";
-              const year = date ? ` (${date.slice(0, 4)})` : "";
-              let fallback = `${emoji} ${item.title || item.name}${year}`;
-              if (fallback.length > 98)
-                fallback = fallback.substring(0, 95) + "...";
-              return {
-                name: fallback,
-                value: `${item.id}|${item.media_type}`,
-              };
-            }
-          });
-
-          const choices = await Promise.all(choicePromises);
-          return await interaction.respond(choices);
+          await interaction.respond(detailedChoices);
         } catch (e) {
           logger.error("Autocomplete error:", e);
           return await interaction.respond([]);
@@ -986,7 +1027,7 @@ async function startBot() {
           return interaction.reply({
             content:
               "⚠️ This command is disabled because Jellyseerr or TMDB configuration is missing.",
-            ephemeral: true,
+            flags: 64,
           });
         }
         const raw = getOptionStringRobust(interaction);
@@ -1134,16 +1175,8 @@ async function startBot() {
             selectedTagNames
           );
 
-          // Success message - check if should be public or ephemeral
-          const isPrivateMode = process.env.PRIVATE_MESSAGE_MODE === "true";
-
-          if (isPrivateMode) {
-            // Keep it ephemeral (edit the deferred update)
-            await interaction.editReply({ embeds: [embed], components });
-          } else {
-            // Send as public followUp (deferUpdate already acknowledged)
-            await interaction.followUp({ embeds: [embed], components, ephemeral: false });
-          }
+          // Success message - always edit the original message
+          await interaction.editReply({ embeds: [embed], components });
         } catch (err) {
           logger.error("Button request error:", err);
           try {
@@ -1171,7 +1204,7 @@ async function startBot() {
         if (!tmdbId || !selectedSeasons.length) {
           return interaction.reply({
             content: "⚠️ Invalid selection.",
-            ephemeral: true,
+            flags: 64,
           });
         }
 
@@ -1456,7 +1489,8 @@ function configureWebServer() {
 
       // Process webhook asynchronously
       if (discordClient && isBotRunning) {
-        await handleJellyfinWebhook(req, res, discordClient, pendingRequests);
+        // Don't pass res since we already responded
+        await handleJellyfinWebhook(req, null, discordClient, pendingRequests);
       } else {
         logger.warn(
           "⚠️ Jellyfin webhook received but Discord bot is not running"

@@ -15,6 +15,30 @@ const debouncedSenders = new Map();
 const sentNotifications = new Map();
 const episodeMessages = new Map(); // Track Discord messages for editing: SeriesId -> { messageId, channelId }
 
+// Cleanup configuration
+const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CLEANUP_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DEFAULT_DEBOUNCE_MS = 60000; // 60 seconds (1 minute)
+
+// Periodic cleanup for old debouncer entries (prevent memory leaks on long-running servers)
+setInterval(() => {
+  const now = Date.now();
+  const sevenDaysAgo = now - CLEANUP_THRESHOLD_MS;
+  
+  let cleanedCount = 0;
+  for (const [seriesId, data] of debouncedSenders.entries()) {
+    // Check if debouncer has a timestamp and is older than 7 days
+    if (data.timestamp && data.timestamp < sevenDaysAgo) {
+      debouncedSenders.delete(seriesId);
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    logger.debug(`Periodic cleanup: Removed ${cleanedCount} old debouncer(s)`);
+  }
+}, CLEANUP_INTERVAL_MS);
+
 function getItemLevel(itemType) {
   switch (itemType) {
     case "Series":
@@ -280,13 +304,61 @@ async function processAndSendNotification(
         `!/details?id=${ItemId}&serverId=${ServerId}`
       )
     )
+<<<<<<< HEAD
     .setColor(embedColor)
     .addFields(
       { name: headerLine, value: overviewText },
       { name: "Genre", value: genreList, inline: true },
       { name: "Runtime", value: runtime, inline: true },
       { name: "Rating", value: rating, inline: true }
+=======
+    .setColor(embedColor);
+
+  // Add fields based on ItemType
+  if (ItemType === "Episode") {
+    // Episodes: Only Summary and Runtime
+    embed.addFields(
+      { name: headerLine, value: overviewText || "No description available." }
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
     );
+    if (runtime && runtime !== "Unknown") {
+      embed.addFields({ name: "Runtime", value: runtime, inline: true });
+    }
+  } else if (ItemType === "Season") {
+    // Seasons: Only Summary
+    embed.addFields(
+      { name: headerLine, value: overviewText || "No description available." }
+    );
+  } else {
+    // Movies and Series: Summary, Genre, Runtime, Rating
+    embed.addFields(
+      { name: headerLine, value: overviewText || "No description available." },
+      { name: "Genre", value: genreList || "Unknown", inline: true },
+      { name: "Runtime", value: runtime || "Unknown", inline: true },
+      { name: "Rating", value: rating || "N/A", inline: true }
+    );
+  }
+
+
+
+  // Add episode list for multiple episodes
+  if (episodeCount > 1 && episodeDetails && episodeDetails.episodes.length <= 10) {
+    const episodeList = episodeDetails.episodes
+      .sort((a, b) => (a.EpisodeNumber || 0) - (b.EpisodeNumber || 0))
+      .map(ep => {
+        const epNum = String(ep.EpisodeNumber || 0).padStart(2, "0");
+        return `E${epNum}: ${ep.Name || "Unknown Episode"}`;
+      })
+      .join("\n");
+    
+    embed.addFields({ name: `Episodes (${episodeCount})`, value: episodeList, inline: false });
+  } else if (episodeCount > 10) {
+    embed.addFields({ 
+      name: `Episodes (${episodeCount})`, 
+      value: `Too many episodes to list individually. Added episodes 1-${episodeCount}.`, 
+      inline: false 
+    });
+  }
 
   // Add quality info if available
   if (qualityInfo) {
@@ -364,7 +436,19 @@ async function processAndSendNotification(
   const buttons = new ActionRowBuilder().addComponents(buttonComponents);
 
   const channelId = targetChannelId || process.env.JELLYFIN_CHANNEL_ID;
+<<<<<<< HEAD
   const channel = await client.channels.fetch(channelId);
+=======
+  
+  let channel;
+  try {
+    channel = await client.channels.fetch(channelId);
+  } catch (error) {
+    logger.error(`Failed to fetch Discord channel ${channelId}:`, error);
+    throw new Error(`Discord channel ${channelId} not accessible`);
+  }
+
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
   // Check if this is a batched episode notification and we have an existing message to edit
   if (ItemType === 'Episode' && episodeCount > 1 && episodeDetails && SeriesId) {
     const existingMessage = episodeMessages.get(SeriesId);
@@ -383,7 +467,17 @@ async function processAndSendNotification(
     }
   }
 
+<<<<<<< HEAD
   const sentMessage = await channel.send({ embeds: [embed], components: [buttons] });
+=======
+  let sentMessage;
+  try {
+    sentMessage = await channel.send({ embeds: [embed], components: [buttons] });
+  } catch (error) {
+    logger.error(`Failed to send Discord message:`, error);
+    throw new Error(`Failed to send Discord notification: ${error.message}`);
+  }
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
   
   // Store message reference for future edits (batched episodes only)
   if (ItemType === 'Episode' && episodeCount > 1 && episodeDetails && SeriesId) {
@@ -462,7 +556,10 @@ export { processAndSendNotification };
 export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
   try {
     const data = req.body;
-    if (!data || !data.ItemId) return res.status(400).send("No valid data");
+    if (!data || !data.ItemId) {
+      if (res) return res.status(400).send("No valid data");
+      return; // If no res object, just return
+    }
 
     // Allow episodes and seasons with enhanced debouncing
 
@@ -559,9 +656,12 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
       logger.info(
         `🚫 Library ${libraryId} not enabled in JELLYFIN_NOTIFICATION_LIBRARIES. Skipping notification.`
       );
-      return res
-        .status(200)
-        .send("OK: Notification skipped for disabled library.");
+      if (res) {
+        return res
+          .status(200)
+          .send("OK: Notification skipped for disabled library.");
+      }
+      return;
     } else {
       // No library detected - use default channel
       libraryChannelId = process.env.JELLYFIN_CHANNEL_ID;
@@ -577,7 +677,7 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
         pendingRequests,
         libraryChannelId
       );
-      return res.status(200).send("OK: Movie notification sent.");
+      if (res) return res.status(200).send("OK: Movie notification sent.");
     }
 
     if (
@@ -593,11 +693,14 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
       const currentLevel = getItemLevel(data.ItemType);
 
       if (currentLevel <= sentLevel) {
-        return res
-          .status(200)
-          .send(
-            `OK: Notification for ${data.Name} skipped, a higher-level notification was already sent.`
-          );
+        if (res) {
+          return res
+            .status(200)
+            .send(
+              `OK: Notification for ${data.Name} skipped, a higher-level notification was already sent.`
+            );
+        }
+        return;
       }
 
       if (!SeriesId) {
@@ -607,11 +710,12 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
           pendingRequests,
           libraryChannelId
         );
-        return res.status(200).send("OK: TV notification sent (no SeriesId).");
+        if (res) return res.status(200).send("OK: TV notification sent (no SeriesId).");
       }
 
       // If we don't have a debounced function for this series yet, create one.
       if (!debouncedSenders.has(SeriesId)) {
+<<<<<<< HEAD
         const newDebouncedSender = debounce((latestData, episodeCount = 0, episodeDetails = null) => {
           processAndSendNotification(
             latestData,
@@ -629,17 +733,48 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
             sentNotifications.delete(SeriesId);
             logger.debug(
               `Cleaned up sent notification state for SeriesId: ${SeriesId}`
+=======
+        const newDebouncedSender = debounce(async (latestData, episodeCount = 0, episodeDetails = null) => {
+          try {
+            await processAndSendNotification(
+              latestData,
+              client,
+              pendingRequests,
+              libraryChannelId,
+              episodeCount,
+              episodeDetails
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
             );
-          }, 24 * 60 * 60 * 1000); // 24 hours
 
-          sentNotifications.set(SeriesId, {
-            level: levelSent,
-            cleanupTimer: cleanupTimer,
-          });
+            const levelSent = getItemLevel(latestData.ItemType);
 
+<<<<<<< HEAD
           // The debounced function has fired, we can remove it.
           debouncedSenders.delete(SeriesId);
         }, parseInt(process.env.WEBHOOK_DEBOUNCE_MS) || 300000); // Configurable debounce window, default 5 minutes (300000ms)
+=======
+            // Set a cleanup timer for the 'sent' notification state
+            const cleanupTimer = setTimeout(() => {
+              sentNotifications.delete(SeriesId);
+              logger.debug(
+                `Cleaned up sent notification state for SeriesId: ${SeriesId}`
+              );
+            }, 24 * 60 * 60 * 1000); // 24 hours
+
+            sentNotifications.set(SeriesId, {
+              level: levelSent,
+              cleanupTimer: cleanupTimer,
+            });
+
+            // The debounced function has fired, we can remove it.
+            debouncedSenders.delete(SeriesId);
+          } catch (error) {
+            logger.error(`Error in debounced notification for series ${SeriesId}:`, error);
+            // Still cleanup the debounced sender on error
+            debouncedSenders.delete(SeriesId);
+          }
+        }, parseInt(process.env.WEBHOOK_DEBOUNCE_MS) || DEFAULT_DEBOUNCE_MS);
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
 
         debouncedSenders.set(SeriesId, {
           sender: newDebouncedSender,
@@ -648,6 +783,10 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
           episodes: data.ItemType === 'Episode' ? [data] : [], // Track individual episodes
           firstEpisode: data.ItemType === 'Episode' ? data : null,
           lastEpisode: data.ItemType === 'Episode' ? data : null,
+<<<<<<< HEAD
+=======
+          timestamp: Date.now(), // Track creation time for periodic cleanup
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
         });
       }
 
@@ -661,7 +800,10 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
       
       // Track episode count for better notifications
       if (data.ItemType === 'Episode') {
+<<<<<<< HEAD
         debouncer.episodeCount = (debouncer.episodeCount || 0) + 1;
+=======
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
         debouncer.episodes = debouncer.episodes || [];
         
         // Check for duplicates by EpisodeNumber before adding
@@ -671,6 +813,11 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
         );
         
         if (!existingEpisode) {
+<<<<<<< HEAD
+=======
+          // Only increment count and add episode if it's not a duplicate
+          debouncer.episodeCount = (debouncer.episodeCount || 0) + 1;
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
           debouncer.episodes.push(data);
           
           // Track first and last episode for range display
@@ -681,8 +828,12 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
             debouncer.lastEpisode = data;
           }
         } else {
+<<<<<<< HEAD
           // Don't increment count for duplicate
           debouncer.episodeCount = Math.max(0, (debouncer.episodeCount || 1) - 1);
+=======
+          logger.debug(`Duplicate episode detected: S${data.SeasonNumber}E${data.EpisodeNumber} - ${data.Name}`);
+>>>>>>> 254a7ab2a9ffed67bc94e9b60b23e4f81c8858f3
         }
       }
 
@@ -695,15 +846,23 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests) {
       
       debouncer.sender(debouncer.latestData, debouncer.episodeCount || 0, episodeDetails);
 
-      return res
-        .status(200)
-        .send(`OK: TV notification for ${SeriesId} is debounced.`);
+      if (res) {
+        return res
+          .status(200)
+          .send(`OK: TV notification for ${SeriesId} is debounced.`);
+      }
+      return;
     }
 
-    await processAndSendNotification(data, client, pendingRequests);
-    res.status(200).send("OK: Notification sent.");
+    // If we reach here, it's an unknown item type - process it normally
+    await processAndSendNotification(data, client, pendingRequests, libraryChannelId);
+    if (res) return res.status(200).send("OK: Notification sent.");
+    
   } catch (err) {
     logger.error("Error handling Jellyfin webhook:", err);
-    res.status(500).send("Error");
+    // Make sure we haven't already sent a response
+    if (res && !res.headersSent) {
+      res.status(500).send("Error");
+    }
   }
 }
