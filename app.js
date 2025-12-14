@@ -2143,7 +2143,7 @@ function configureWebServer() {
         try {
           await startBot();
           res.status(200).json({ 
-            message: "Configuration saved. Bot started successfully!" 
+            message: i18n.t("config.bot_started")
           });
         } catch (error) {
           logger.error("Auto-start failed:", error.message);
@@ -2152,7 +2152,7 @@ function configureWebServer() {
           });
         }
       } else {
-        res.status(200).json({ message: "Configuration saved successfully!" });
+        res.status(200).json({ message: i18n.t("config.save_success") });
       }
     }
   );
@@ -2423,7 +2423,7 @@ function configureWebServer() {
       const result = await startBot();
       res
         .status(200)
-        .json({ message: `Bot started successfully! ${result.message}` });
+        .json({ message: i18n.t("bot.messages.started") + ` ${result.message}` });
     } catch (error) {
       res.status(500).json({
         message: `Failed to start bot: ${error.message}`,
@@ -2458,7 +2458,7 @@ function configureWebServer() {
     isBotRunning = false;
     discordClient = null;
     logger.info("Bot has been stopped.");
-    res.status(200).json({ message: "Bot stopped successfully." });
+    res.status(200).json({ message: i18n.t("bot.messages.stopped") });
   });
 }
 

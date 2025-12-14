@@ -4,6 +4,7 @@
  */
 
 import { SlashCommandBuilder } from "discord.js";
+import i18n from "../lib/i18n.js";
 
 /**
  * Get all command definitions
@@ -13,7 +14,7 @@ export function getCommands() {
   return [
     new SlashCommandBuilder()
       .setName("search")
-      .setDescription("Search for a movie/TV show (you can request it later)")
+      .setDescription(i18n.t("bot.commands.search.description"))
       .addStringOption((opt) =>
         opt
           .setName("title")
@@ -23,7 +24,7 @@ export function getCommands() {
       ),
     new SlashCommandBuilder()
       .setName("request")
-      .setDescription("Send instant request for a movie/TV show")
+      .setDescription(i18n.t("bot.commands.request.description"))
       .addStringOption((opt) =>
         opt
           .setName("title")

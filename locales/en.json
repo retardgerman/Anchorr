@@ -45,6 +45,29 @@
       "started": "Bot has been started",
       "stopped": "Bot has been stopped",
       "restarted": "Bot has been restarted"
+    },
+    "commands": {
+      "search": {
+        "description": "Search for a movie/TV show (you can request it later)",
+        "response_found": "Found {{count}} results for \"{{query}}\"",
+        "response_none": "No results found for \"{{query}}\"",
+        "request_sent": "Request sent for {{title}}!",
+        "already_available": "{{title}} is already available!",
+        "error": "An error occurred while processing your request."
+      },
+      "request": {
+        "description": "Send instant request for a movie/TV show"
+      },
+      "trending": {
+        "description": "Browse trending movies and TV shows"
+      }
+    },
+    "notifications": {
+      "new_content": "🎬 New content available!",
+      "movie_added": "Movie added to library",
+      "series_added": "Series added to library", 
+      "episode_added": "New episode available",
+      "season_added": "New season available"
     }
   }
 }

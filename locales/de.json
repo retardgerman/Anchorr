@@ -45,6 +45,29 @@
       "started": "Bot wurde gestartet",
       "stopped": "Bot wurde gestoppt",
       "restarted": "Bot wurde neu gestartet"
+    },
+    "commands": {
+      "search": {
+        "description": "Nach einem Film/einer Serie suchen (später anfragbar)",
+        "response_found": "{{count}} Ergebnisse für \"{{query}}\" gefunden",
+        "response_none": "Keine Ergebnisse für \"{{query}}\" gefunden",
+        "request_sent": "Anfrage für {{title}} gesendet!",
+        "already_available": "{{title}} ist bereits verfügbar!",
+        "error": "Ein Fehler ist beim Verarbeiten Ihrer Anfrage aufgetreten."
+      },
+      "request": {
+        "description": "Sofortige Anfrage für einen Film/eine Serie senden"
+      },
+      "trending": {
+        "description": "Angesagte Filme und Serien durchsuchen"
+      }
+    },
+    "notifications": {
+      "new_content": "🎬 Neue Inhalte verfügbar!",
+      "movie_added": "Film zur Bibliothek hinzugefügt",
+      "series_added": "Serie zur Bibliothek hinzugefügt",
+      "episode_added": "Neue Episode verfügbar",
+      "season_added": "Neue Staffel verfügbar"
     }
   }
 }

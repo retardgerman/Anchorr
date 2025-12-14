@@ -10,6 +10,7 @@ import { minutesToHhMm } from "./utils/time.js";
 import logger from "./utils/logger.js";
 import { fetchOMDbData } from "./api/omdb.js";
 import { findBestBackdrop } from "./api/tmdb.js";
+import i18n from "./lib/i18n.js";
 
 const debouncedSenders = new Map();
 const sentNotifications = new Map();
