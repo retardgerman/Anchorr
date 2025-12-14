@@ -2006,12 +2006,14 @@ function configureWebServer() {
       config.LANGUAGE = i18n.getLanguage();
       res.json(config);
     } else {
-      // If no config file, return the template from config/config.js
-      res.json(configTemplate);
+      // If no config file, return the template with current language
+      const template = { ...configTemplate };
+      template.LANGUAGE = i18n.getLanguage();
+      res.json(template);
     }
   });
 
-  // Localization endpoints
+  // Localization endpoints (public access for initial setup)
   app.get("/api/languages", (req, res) => {
     const languages = i18n.getAvailableLanguages().map(lang => ({
       code: lang,
@@ -2026,7 +2028,7 @@ function configureWebServer() {
     res.json({ language: lang, translations });
   });
 
-  app.post("/api/language", authenticateToken, (req, res) => {
+  app.post("/api/language", (req, res) => {
     const { language } = req.body;
     if (!language) {
       return res.status(400).json({ success: false, error: "Language is required" });
@@ -2034,10 +2036,13 @@ function configureWebServer() {
     
     const success = i18n.setLanguage(language);
     if (success) {
-      // Save language preference to config
+      // Try to save language preference to config if it exists
       const config = readConfig();
-      config.LANGUAGE = language;
-      writeConfig(config);
+      if (config) {
+        config.LANGUAGE = language;
+        writeConfig(config);
+      }
+      // If no config exists yet, the language will be saved when config is first saved
       
       res.json({ success: true, message: i18n.t("common.success") });
     } else {

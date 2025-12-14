@@ -137,6 +137,9 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadTranslations('en');
       }
       
+      // Setup language change handler for immediate UI updates
+      setupLanguageChangeHandler();
+      
       for (const key in config) {
         const input = document.getElementById(key);
         if (!input) continue;
@@ -166,6 +169,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       updateWebhookUrl();
+      // Ensure UI translations are applied after config is loaded
+      updateUI();
     } catch (error) {
       showToast("Error fetching configuration.");
     }
@@ -225,6 +230,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function checkAuth() {
     try {
+      // Setup auth language handler early
+      setupAuthLanguageHandler();
+      
+      // Load default translations early
+      await loadTranslations('en');
+      updateUITranslations();
+      
       const response = await fetch("/api/auth/check");
       const data = await response.json();
 
@@ -993,6 +1005,119 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const jsonValue = JSON.stringify(libraryChannels);
     notificationLibrariesInput.value = jsonValue;
+  }
+
+  // Setup language change handler for auth screen
+  function setupAuthLanguageHandler() {
+    const authLanguageSelect = document.getElementById('auth-language');
+    if (authLanguageSelect) {
+      authLanguageSelect.addEventListener('change', async function(e) {
+        const newLanguage = e.target.value;
+        try {
+          // Load new translations immediately
+          await loadTranslations(newLanguage);
+          
+          // Update UI translations immediately
+          updateUITranslations();
+          
+          // Try to save language preference to backend
+          try {
+            const response = await fetch('/api/language', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ language: newLanguage })
+            });
+            
+            if (!response.ok) {
+              console.warn('Language preference will be saved with configuration');
+            }
+          } catch (error) {
+            console.warn('Language preference will be saved with configuration');
+          }
+        } catch (error) {
+          console.error('Error changing language:', error);
+        }
+      });
+    }
+  }
+
+  // Language selection handler for immediate UI updates
+  function setupLanguageChangeHandler() {
+    const languageSelect = document.getElementById('LANGUAGE');
+    if (languageSelect) {
+      languageSelect.addEventListener('change', async function(e) {
+        const newLanguage = e.target.value;
+        try {
+          // Load new translations immediately
+          await loadTranslations(newLanguage);
+          
+          // Update UI translations immediately
+          updateUITranslations();
+          
+          // Try to save language preference (may fail if no config exists yet)
+          try {
+            const response = await fetch('/api/language', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ language: newLanguage })
+            });
+            
+            if (!response.ok) {
+              console.warn('Language preference will be saved with configuration');
+            }
+          } catch (error) {
+            console.warn('Language preference will be saved with configuration');
+          }
+        } catch (error) {
+          console.error('Error changing language:', error);
+        }
+      });
+    }
+  }
+  
+  // Function to update all UI translations
+  function updateUITranslations() {
+    const elements = document.querySelectorAll('[data-i18n]');
+    elements.forEach(element => {
+      const key = element.getAttribute('data-i18n');
+      if (key && window.translations && window.translations[key]) {
+        if (element.tagName === 'INPUT' && (element.type === 'text' || element.type === 'password')) {
+          element.placeholder = window.translations[key];
+        } else {
+          element.textContent = window.translations[key];
+        }
+      }
+    });
+    
+    // Handle nested translation keys (e.g., "auth.login")
+    const nestedElements = document.querySelectorAll('[data-i18n]');
+    nestedElements.forEach(element => {
+      const key = element.getAttribute('data-i18n');
+      if (key && key.includes('.') && window.translations) {
+        const keys = key.split('.');
+        let translation = window.translations;
+        for (const k of keys) {
+          if (translation && translation[k] !== undefined) {
+            translation = translation[k];
+          } else {
+            translation = undefined;
+            break;
+          }
+        }
+        
+        if (translation) {
+          if (element.tagName === 'INPUT' && (element.type === 'text' || element.type === 'password')) {
+            element.placeholder = translation;
+          } else {
+            element.textContent = translation;
+          }
+        }
+      }
+    });
   }
 
   // --- Initial Load ---

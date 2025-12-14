@@ -8,7 +8,22 @@
     "edit": "Bearbeiten",
     "loading": "Laden...",
     "error": "Fehler",
-    "success": "Erfolgreich"
+    "success": "Erfolgreich",
+    "username": "Benutzername",
+    "password": "Passwort"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "create_account": "Konto erstellen",
+    "enter_username": "Benutzername eingeben",
+    "enter_password": "Passwort eingeben",
+    "choose_username": "Benutzername wählen",
+    "choose_password": "Passwort wählen",
+    "choose_username_placeholder": "Benutzername wählen",
+    "choose_password_placeholder": "Sicheres Passwort wählen",
+    "no_account": "Noch kein Konto?",
+    "have_account": "Bereits ein Konto?"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -16,11 +31,19 @@
     "logs": "Logs",
     "users": "Benutzer"
   },
+  "dashboard": {
+    "title": "Anchorr Konfiguration",
+    "subtitle": "Anchorr muss mit Ihrem Discord Bot und Ihren Jellyfin- und Jellyseerr-Instanzen verbunden werden.",
+    "subtitle_detail": "Hier ist eine Schritt-für-Schritt-Anleitung, um alles einzurichten!"
+  },
   "config": {
     "title": "Konfiguration",
+    "general_settings": "Allgemeine Einstellungen",
     "discord_section": "Discord Bot Einstellungen",
     "jellyfin_section": "Jellyfin Einstellungen",
     "language": "Sprache",
+    "language_help": "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
+    "save_button": "Einstellungen speichern",
     "bot_token": "Bot Token",
     "bot_id": "Bot ID",
     "server_id": "Discord Server ID",

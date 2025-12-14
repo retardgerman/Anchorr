@@ -72,47 +72,56 @@
 
               <!-- Dashboard Text -->
               <div id="hero-text-dashboard" style="display: none;">
-                <h1 class="hero-title">Anchorr Configuration</h1>
+                <h1 class="hero-title" data-i18n="dashboard.title">Anchorr Configuration</h1>
                 <p class="hero-subtitle">
-                  Anchorr needs to be connect with your Discord bot and with your
-                  Jellyfin and Jellyseerr instances.
+                  <span data-i18n="dashboard.subtitle">Anchorr needs to be connect with your Discord bot and with your
+                  Jellyfin and Jellyseerr instances.</span>
                   <br />
-                  Below is a step-by-step walkthrough to help you set up
-                  everything you need to get started!
+                  <span data-i18n="dashboard.subtitle_detail">Below is a step-by-step walkthrough to help you set up
+                  everything you need to get started!</span>
                 </p>
               </div>
               
               <!-- Auth Forms Container -->
               <div id="auth-container-wrapper" class="auth-container">
+                <!-- Language Selection (shown during auth) -->
+                <div class="language-selector-auth" style="margin-bottom: 1.5rem; text-align: center;">
+                  <label for="auth-language" style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--subtext0);">Language / Sprache</label>
+                  <select id="auth-language" style="width: 100%; max-width: 200px; background-color: var(--background); border: 1px solid var(--surface1); color: var(--text); padding: 0.5rem; border-radius: 8px; font-size: 0.9rem;">
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                  </select>
+                </div>
+                
                 <!-- Login Form -->
                 <form id="login-form" class="auth-form">
                   <div class="form-group">
-                    <label for="login-username">Username</label>
-                    <input type="text" id="login-username" required placeholder="Enter your username">
+                    <label for="login-username" data-i18n="common.username">Username</label>
+                    <input type="text" id="login-username" required placeholder="Enter your username" data-i18n="auth.enter_username">
                   </div>
                   <div class="form-group">
-                    <label for="login-password">Password</label>
-                    <input type="password" id="login-password" required placeholder="Enter your password">
+                    <label for="login-password" data-i18n="common.password">Password</label>
+                    <input type="password" id="login-password" required placeholder="Enter your password" data-i18n="auth.enter_password">
                   </div>
-                  <button type="submit" class="btn btn-primary" style="width: 100%; margin: 0;">Login</button>
+                  <button type="submit" class="btn btn-primary" style="width: 100%; margin: 0;" data-i18n="auth.login">Login</button>
                   <p class="auth-switch">
-                    Don't have an account? <a href="#" id="show-register">Register</a>
+                    <span data-i18n="auth.no_account">Don't have an account?</span> <a href="#" id="show-register" data-i18n="auth.register">Register</a>
                   </p>
                 </form>
 
                 <!-- Register Form -->
                 <form id="register-form" class="auth-form" style="display: none;">
                   <div class="form-group">
-                    <label for="register-username">Choose Username</label>
-                    <input type="text" id="register-username" required placeholder="Choose a username">
+                    <label for="register-username" data-i18n="auth.choose_username">Choose Username</label>
+                    <input type="text" id="register-username" required placeholder="Choose a username" data-i18n="auth.choose_username_placeholder">
                   </div>
                   <div class="form-group">
-                    <label for="register-password">Choose Password</label>
-                    <input type="password" id="register-password" required placeholder="Choose a secure password">
+                    <label for="register-password" data-i18n="auth.choose_password">Choose Password</label>
+                    <input type="password" id="register-password" required placeholder="Choose a secure password" data-i18n="auth.choose_password_placeholder">
                   </div>
-                  <button type="submit" class="btn btn-primary" style="width: 100%; margin: 0;">Create Account</button>
+                  <button type="submit" class="btn btn-primary" style="width: 100%; margin: 0;" data-i18n="auth.create_account">Create Account</button>
                   <p class="auth-switch">
-                    Already have an account? <a href="#" id="show-login">Login</a>
+                    <span data-i18n="auth.have_account">Already have an account?</span> <a href="#" id="show-login" data-i18n="auth.login">Login</a>
                   </p>
                 </form>
                 <div id="auth-error" class="auth-error"></div>
@@ -156,7 +165,7 @@
                   <a href="#" class="nav-item" data-target="mappings">5. User Mapping</a>
                   <a href="#" class="nav-item" data-target="roles">6. Role Permissions</a>
                   <a href="#" class="nav-item" data-target="misc">7. Miscellaneous</a>
-                  <button type="submit" form="config-form" class="btn btn-primary">Save Settings</button>
+                  <button type="submit" form="config-form" class="btn btn-primary" data-i18n="config.save_button">Save Settings</button>
                 </nav>
               </div>
 
@@ -166,10 +175,10 @@
                   <!-- Discord Pane -->
                   <div id="config-pane-discord" class="config-pane active">
                     <fieldset>
-                      <legend>General Settings</legend>
+                      <legend data-i18n="config.general_settings">General Settings</legend>
                       
                       <div class="form-group">
-                        <label for="LANGUAGE">Language</label>
+                        <label for="LANGUAGE" data-i18n="config.language">Language</label>
                         <select 
                           id="LANGUAGE" 
                           name="LANGUAGE"
@@ -177,12 +186,12 @@
                           <option value="en">English</option>
                           <option value="de">Deutsch</option>
                         </select>
-                        <div class="form-text">Select your preferred language for the interface.</div>
+                        <div class="form-text" data-i18n="config.language_help">Select your preferred language for the interface.</div>
                       </div>
                     </fieldset>
 
                     <fieldset>
-                      <legend>Discord Settings</legend>
+                      <legend data-i18n="config.discord_section">Discord Settings</legend>
                       
                       <!-- Discord Bot Setup Instructions -->
                       <div class="setup-instructions-box">
