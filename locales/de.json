@@ -1,0 +1,50 @@
+{
+  "common": {
+    "yes": "Ja",
+    "no": "Nein",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolgreich"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "configuration": "Konfiguration",
+    "logs": "Logs",
+    "users": "Benutzer"
+  },
+  "config": {
+    "title": "Konfiguration",
+    "discord_section": "Discord Bot Einstellungen",
+    "jellyfin_section": "Jellyfin Einstellungen",
+    "language": "Sprache",
+    "bot_token": "Bot Token",
+    "bot_id": "Bot ID",
+    "server_id": "Discord Server ID",
+    "api_key": "API Schlüssel",
+    "server_url": "Server URL",
+    "save_success": "Konfiguration erfolgreich gespeichert!",
+    "bot_started": "Bot erfolgreich gestartet!",
+    "bot_restart_failed": "Bot Neustart fehlgeschlagen",
+    "auto_start_info": "Der Bot wird automatisch gestartet, wenn Sie zum ersten Mal Discord-Anmeldedaten eingeben und speichern."
+  },
+  "bot": {
+    "status": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "actions": {
+      "start": "Bot Starten",
+      "stop": "Bot Stoppen", 
+      "restart": "Bot Neustarten"
+    },
+    "messages": {
+      "started": "Bot wurde gestartet",
+      "stopped": "Bot wurde gestoppt",
+      "restarted": "Bot wurde neu gestartet"
+    }
+  }
+}

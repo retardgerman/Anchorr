@@ -1,3 +1,74 @@
+// === LOCALIZATION ===
+let currentTranslations = {};
+
+async function loadTranslations(lang = 'en') {
+  try {
+    const response = await fetch(`/api/translations/${lang}`);
+    const data = await response.json();
+    currentTranslations = data.translations;
+    updateUI();
+  } catch (error) {
+    console.error('Failed to load translations:', error);
+  }
+}
+
+function t(key, params = {}) {
+  const keys = key.split('.');
+  let value = currentTranslations;
+  
+  for (const k of keys) {
+    if (value && typeof value === 'object') {
+      value = value[k];
+    } else {
+      return key; // Return key if translation not found
+    }
+  }
+  
+  if (typeof value === 'string' && Object.keys(params).length > 0) {
+    return value.replace(/\{\{(\w+)\}\}/g, (match, paramKey) => {
+      return params[paramKey] !== undefined ? params[paramKey] : match;
+    });
+  }
+  
+  return value || key;
+}
+
+function updateUI() {
+  // Update text elements with data-i18n attribute
+  document.querySelectorAll('[data-i18n]').forEach(element => {
+    const key = element.getAttribute('data-i18n');
+    element.textContent = t(key);
+  });
+
+  // Update placeholders with data-i18n-placeholder attribute
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+    const key = element.getAttribute('data-i18n-placeholder');
+    element.placeholder = t(key);
+  });
+}
+
+async function changeLanguage(lang) {
+  try {
+    const response = await fetch('/api/language', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ language: lang })
+    });
+
+    if (response.ok) {
+      await loadTranslations(lang);
+      showToast(t('common.success'));
+    } else {
+      throw new Error('Failed to change language');
+    }
+  } catch (error) {
+    console.error('Error changing language:', error);
+    showToast(t('common.error'));
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("config-form");
   const botControlBtn = document.getElementById("bot-control-btn");
@@ -58,6 +129,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const config = await response.json();
+      
+      // Load translations for current language
+      if (config.LANGUAGE) {
+        await loadTranslations(config.LANGUAGE);
+      } else {
+        await loadTranslations('en');
+      }
+      
       for (const key in config) {
         const input = document.getElementById(key);
         if (!input) continue;
@@ -1035,6 +1114,16 @@ document.addEventListener("DOMContentLoaded", () => {
           channelSelect.innerHTML =
             '<option value="">Select a server first...</option>';
         }
+      }
+    });
+  }
+
+  // Listen for language selection changes
+  const languageSelect = document.getElementById("LANGUAGE");
+  if (languageSelect) {
+    languageSelect.addEventListener("change", (e) => {
+      if (e.target.value) {
+        changeLanguage(e.target.value);
       }
     });
   }

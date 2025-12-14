@@ -1,0 +1,50 @@
+{
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "configuration": "Configuration",
+    "logs": "Logs",
+    "users": "Users"
+  },
+  "config": {
+    "title": "Configuration",
+    "discord_section": "Discord Bot Settings",
+    "jellyfin_section": "Jellyfin Settings",
+    "language": "Language",
+    "bot_token": "Bot Token",
+    "bot_id": "Bot ID",
+    "server_id": "Discord Server ID",
+    "api_key": "API Key",
+    "server_url": "Server URL",
+    "save_success": "Configuration saved successfully!",
+    "bot_started": "Bot started successfully!",
+    "bot_restart_failed": "Bot failed to restart",
+    "auto_start_info": "The bot will automatically start when you enter and save Discord credentials for the first time."
+  },
+  "bot": {
+    "status": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "actions": {
+      "start": "Start Bot",
+      "stop": "Stop Bot",
+      "restart": "Restart Bot"
+    },
+    "messages": {
+      "started": "Bot has been started",
+      "stopped": "Bot has been stopped",
+      "restarted": "Bot has been restarted"
+    }
+  }
+}

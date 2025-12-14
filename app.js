@@ -24,6 +24,7 @@ import * as tmdbApi from "./api/tmdb.js";
 import * as jellyseerrApi from "./api/jellyseerr.js";
 import { registerCommands } from "./discord/commands.js";
 import logger from "./utils/logger.js";
+import i18n from "./lib/i18n.js";
 import {
   validateBody,
   configSchema,
@@ -125,6 +126,11 @@ function loadConfig() {
   const success = loadConfigToEnv();
 
   if (success) {
+    // Set application language
+    const language = process.env.LANGUAGE || 'en';
+    i18n.setLanguage(language);
+    logger.debug("[LOADCONFIG] Language set to:", language);
+    
     logger.debug(
       "[LOADCONFIG] Config keys loaded:",
       Object.keys(process.env).filter(
@@ -1996,10 +2002,46 @@ function configureWebServer() {
   app.get("/api/config", authenticateToken, (req, res) => {
     const config = readConfig();
     if (config) {
+      // Add current language to config
+      config.LANGUAGE = i18n.getLanguage();
       res.json(config);
     } else {
       // If no config file, return the template from config/config.js
       res.json(configTemplate);
+    }
+  });
+
+  // Localization endpoints
+  app.get("/api/languages", (req, res) => {
+    const languages = i18n.getAvailableLanguages().map(lang => ({
+      code: lang,
+      name: lang === 'en' ? 'English' : lang === 'de' ? 'Deutsch' : lang
+    }));
+    res.json({ languages });
+  });
+
+  app.get("/api/translations/:lang?", (req, res) => {
+    const lang = req.params.lang || i18n.getLanguage();
+    const translations = i18n.getTranslations(lang);
+    res.json({ language: lang, translations });
+  });
+
+  app.post("/api/language", authenticateToken, (req, res) => {
+    const { language } = req.body;
+    if (!language) {
+      return res.status(400).json({ success: false, error: "Language is required" });
+    }
+    
+    const success = i18n.setLanguage(language);
+    if (success) {
+      // Save language preference to config
+      const config = readConfig();
+      config.LANGUAGE = language;
+      writeConfig(config);
+      
+      res.json({ success: true, message: i18n.t("common.success") });
+    } else {
+      res.status(400).json({ success: false, error: "Unsupported language" });
     }
   });
 
