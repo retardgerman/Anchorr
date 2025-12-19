@@ -171,46 +171,46 @@
     }
   },
   "errors": {
-    "loading_servers": "",
-    "loading_servers_check_token": "",
-    "loading_channels": "",
-    "loading_members": "",
-    "loading_members_bot_running": "",
-    "loading_logs": "",
-    "bot_must_be_running": "",
-    "no_roles_available": ""
+    "loading_servers": "Laddning av servrar misslyckades",
+    "loading_servers_check_token": "Laddning av servrar misslyckades. Kolla Tokenen",
+    "loading_channels": "Laddning av kanaler misslyckades",
+    "loading_members": "Laddning av medlemmar misslyckades",
+    "loading_members_bot_running": "Lyckades inte ladde medlemmar. Kör Boten?",
+    "loading_logs": "Lyckades inte ladda loggarna",
+    "bot_must_be_running": "Boten behöver köra för att ladda rollerna",
+    "no_roles_available": "Inga roller tillgängliga"
   },
   "modals": {
-    "start_bot_yes": "",
-    "start_bot_no": ""
+    "start_bot_yes": "Ja, starta boten",
+    "start_bot_no": "Nej, spara bara"
   },
   "about": {
-    "title": "",
-    "description": "",
-    "features_title": "",
-    "feature_search": "",
-    "feature_request": "",
-    "feature_notifications": "",
-    "feature_databases": "",
-    "feature_permissions": "",
-    "feature_direct_messages": "",
-    "support_title": "",
-    "support_description": "",
-    "contribute_title": "",
-    "contribute_description": "",
-    "buy_coffee": "",
-    "view_github": ""
+    "title": "Om Anchorr",
+    "description": "Anchorr är en self-hostad, lättviktig brygga mellan din Jellyfinserver och Discord. Den notifierar dig på en dedikerad kanal när ny media läggs till till ditt bibliotek, och med Jellyseerrintegration, kan du söka efter och be om filmer och serier direkt i Discord.",
+    "features_title": "Funktioner",
+    "feature_search": "/search <titel> Sök efter en film eller serie med automatiska förslag. En inbäddning med detaljerad information visas. Från den kan du be om media.För tvserier kan du välja vilka säsonger du vill ha.",
+    "feature_request": "/request <titel> Skicka direkt en begäran efter en film eller serie. För tvserier beställs automatiskt alla säsonger.",
+    "feature_notifications": "Få fint formatterade notiser i din valda Discordkanal när ny media läggs till till ditt Jellyfinbibliotek.",
+    "feature_databases": "Med hjälp av TMDB-och-OMDbs databaser kan du få fina och välstrukturerade meddelanden med relevant information med relevant information för den beställda eller tillagda median.",
+    "feature_permissions": "Kontrollera behörigheter med rollbaserad åtkomst (tillåtelselista/blocklista), dirigera aviseringar till olika kanaler per Jellyfin‑bibliotek och länka användare till Jellyseerr‑konton för exakt spårning av begäranden.",
+    "feature_direct_messages": "Få direkta meddelanden på Discord när efterfrågat innehåll blir tillgängligt i ditt bibliotek. Missa aldrig när dina önskemål är klara!",
+    "support_title": "Stöd projektet",
+    "support_description": "Om Anchorr är dig behjälpligt; Överväg att stödja dess utveckling. Varje kopp kaffe hjälper till att driva nattliga kodningssessioner",
+    "contribute_title": "Bidra",
+    "contribute_description": "Anchorr är öppen källkod! Om du är utvecklare är dina bidrag välkomna. Kolla in projektet på GitHub för att komma igång.",
+    "buy_coffee": "Köp en kaffe till mig",
+    "view_github": "Visa på GitHub"
   },
   "jellyfin_webhook": {
-    "note": "",
-    "plugin_install": "",
-    "plugin_setup": "",
-    "step_server_url": "",
-    "step_webhook_url": "",
-    "step_status": "",
-    "step_notification_type": "",
-    "step_item_type": "",
-    "step_properties": "",
-    "step_save": ""
+    "note": "Om du kör anchorr på docker behöver du ersätta localhost med din servers IP-adress",
+    "plugin_install": "Om du inte har pluginen installerad, gå till sidan Plugins i din Jellyfin‑instrumentpanel, sök efter Webhook, installera den och starta om servern.",
+    "plugin_setup": "Efter omstarten öppnar du inställningarna för Webhook‑pluginen och lägger till en Discord‑destination.",
+    "step_server_url": "Fyll i din Jellyfinservers basurl",
+    "step_webhook_url": "lägg in den tidigare nämnda url:en i webhookpluginens url fält",
+    "step_status": "Statusen måste vara på",
+    "step_notification_type": "som aviseringstyp: lägg till 'Item Added'",
+    "step_item_type": "För fälttypen “Item Type”, välj det innehåll du vill få aviseringar om.",
+    "step_properties": "Sätt på 'Send All Properties*",
+    "step_save": "Spara"
   }
 }
