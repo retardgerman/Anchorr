@@ -39,6 +39,24 @@ export function getCommands() {
           )
           .setRequired(false)
           .setAutocomplete(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("server")
+          .setDescription(
+            "Select a Radarr/Sonarr server (optional, uses default if not specified)"
+          )
+          .setRequired(false)
+          .setAutocomplete(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("quality")
+          .setDescription(
+            "Select a quality profile (optional, uses default if not specified)"
+          )
+          .setRequired(false)
+          .setAutocomplete(true)
       ),
     new SlashCommandBuilder()
       .setName("trending")
@@ -69,7 +87,22 @@ export async function registerCommands(rest, botId, guildId, logger) {
       const globalEndpoint = `/applications/${botId}/commands`;
       await rest.put(globalEndpoint, { body: commands });
       logger.info("✅ Global commands registered successfully!");
+      return; // Success, exit early
     } catch (globalErr) {
+      // Only attempt guild-specific fallback if guildId is provided
+      if (!guildId) {
+        logger.warn(
+          `⚠️ Global command registration failed. GUILD_ID is not configured in config.json.`
+        );
+        logger.warn(
+          `Commands will be available globally once Discord syncs them (can take up to 1 hour).`
+        );
+        logger.warn(
+          `To enable faster command registration for this server, add your server ID as GUILD_ID in config.json`
+        );
+        return; // Allow bot to continue, commands will work eventually
+      }
+
       logger.warn(
         `Global registration failed, falling back to guild-specific: ${globalErr.message}`
       );

@@ -7,6 +7,7 @@ import Joi from "joi";
 
 // --- CONFIG VALIDATION ---
 export const configSchema = Joi.object({
+  LANGUAGE: Joi.string().allow("").optional(), // Allow any language code from locales folder
   DISCORD_TOKEN: Joi.string().allow("").optional(),
   BOT_ID: Joi.string().allow("").optional(),
   GUILD_ID: Joi.string().allow("").optional(),
@@ -24,10 +25,15 @@ export const configSchema = Joi.object({
   ).optional(),
   JELLYFIN_NOTIFY_MOVIES: Joi.string().valid("true", "false").optional(),
   JELLYFIN_NOTIFY_SERIES: Joi.string().valid("true", "false").optional(),
-  JELLYFIN_NOTIFY_SEASONS: Joi.string().valid("true", "false").optional(),
-  JELLYFIN_NOTIFY_EPISODES: Joi.string().valid("true", "false").optional(),
+  JELLYFIN_NOTIFY_SEASONS: Joi.string().valid("true", "false").allow("").optional(),
+  JELLYFIN_NOTIFY_EPISODES: Joi.string().valid("true", "false").allow("").optional(),
+  JELLYFIN_EPISODE_CHANNEL_ID: Joi.string().allow("").optional(),
+  JELLYFIN_SEASON_CHANNEL_ID: Joi.string().allow("").optional(),
   WEBHOOK_PORT: Joi.alternatives(Joi.string(), Joi.number().port()).optional(),
-  WEBHOOK_DEBOUNCE_MS: Joi.alternatives(Joi.string(), Joi.number().integer().min(1000).max(600000)).optional(), // Allow up to 10 minutes
+  WEBHOOK_DEBOUNCE_MS: Joi.alternatives(
+    Joi.string(),
+    Joi.number().integer().min(1000).max(600000)
+  ).optional(), // Allow up to 10 minutes
   AUTO_START_BOT: Joi.string().valid("true", "false").optional(),
   NOTIFY_ON_AVAILABLE: Joi.string().valid("true", "false").optional(),
   PRIVATE_MESSAGE_MODE: Joi.string().valid("true", "false").optional(),
@@ -95,8 +101,8 @@ export function validateBody(schema) {
       }));
 
       // Log validation errors for debugging
-      console.error("Validation failed:", JSON.stringify(errors, null, 2));
-      console.error("Received body:", JSON.stringify(req.body, null, 2));
+      // console.error("Validation failed:", JSON.stringify(errors, null, 2));
+      // console.error("Received body:", JSON.stringify(req.body, null, 2));
 
       return res.status(400).json({
         success: false,

@@ -7,12 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.3] - 2025-11-30
+## [1.3.5] - 2025-12-26
+
+### ✨ Added
+
+- **Notification Testing**: New testing section in Jellyfin Notifications settings with 6 test buttons (Movie, Series, Season, Episodes, and batch tests for seasons/episodes) to preview notification appearance with real data
+- **Embed Customization**: Granular control over notification embed elements - individually toggle backdrop image, overview/description, genre, runtime, rating, and each button (Letterboxd, IMDb, Watch Now)
+- **Separate Channel Mapping**: Added dedicated optional channel settings for episodes and seasons, allowing you to route different notification types to specific Discord channels
+- **Localizations**: Added Swedish (sv) and German (de) language support with work-in-progress translations
+- **Quality Profile Integration**: Radarr and Sonarr quality profile selection in Jellyseerr settings for movie and TV requests
+
+---
+
+## [1.3.4] - 2025-12-02
 
 ### 🐛 Fixed
 
+- **Duplicate Notifications**: Fixed issue where Series webhook notifications were using `undefined` SeriesId instead of ItemId, causing duplicate notifications and preventing season/episode notifications from being properly blocked. It would also happen happen with Movie notifications.
+- **Multi-Platform Docker Support**: Added ARM64 architecture support alongside AMD64 in Docker images via multi-platform builds using QEMU and Docker Buildx
+
+### 🚀 Performance
+
+- **API Response Caching**: Added 6-hour cache for TMDB and OMDb API responses to reduce external API calls and improve notification speed
+
+---
+
+## [1.3.3] - 2025-12-01
+
+### 🔄 Changed
+
+- **Seasons and Episodes Notifications**: Re-enabled notifications for TV series seasons and episodes using the debouncing functionality to batch multiple episode updates into a single notification, reducing notification spam
+
+### ✨ Added
+
 - **Configurable Debounce**: New `WEBHOOK_DEBOUNCE_MS` setting (default: 60 seconds, range: 1-600 seconds) to control how long to wait before sending batched notifications
 - **Custom UI Controls**: User-friendly seconds input with custom vertical arrow buttons (hold-to-repeat functionality) in the web dashboard
+- **Configurable Embed Colors**: New color options for embeds, allowing full customization of embed colors for different media types and notifications
+- **Header Visibility Toggle**: New feature to hide/show header in web dashboard
 
 ### 🚀 Performance
 

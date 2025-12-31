@@ -1,4 +1,170 @@
-document.addEventListener("DOMContentLoaded", () => {
+// --- i18n System ---
+let currentTranslations = {};
+let currentLanguage = 'en';
+
+async function loadTranslations(language) {
+  try {
+    const response = await fetch(`/locales/${language}.json`);
+    if (!response.ok) {
+      console.warn(`Failed to load ${language} translations, falling back to English`);
+      const fallbackResponse = await fetch('/locales/en.json');
+      return await fallbackResponse.json();
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error loading translations:', error);
+    // Return minimal fallback
+    return {
+      common: { loading: 'Loading...' },
+      auth: { login: 'Login' },
+      config: { title: 'Configuration' }
+    };
+  }
+}
+
+function updateUITranslations() {
+  // Update all elements with data-i18n attributes
+  document.querySelectorAll('[data-i18n]').forEach(element => {
+    const key = element.getAttribute('data-i18n');
+    const translation = getNestedTranslation(key);
+    if (translation) {
+      // Check if element needs attribute translation
+      const attrName = element.getAttribute('data-i18n-attr');
+      if (attrName) {
+        element.setAttribute(attrName, translation);
+      } else {
+        // Regular text content translation
+        element.innerHTML = translation;
+      }
+    }
+  });
+}
+
+function getNestedTranslation(key) {
+  const result = key.split('.').reduce((obj, k) => obj && obj[k], currentTranslations);
+  return result || key; // Fallback to key if translation not found
+}
+
+// Short alias for getNestedTranslation
+function t(key) {
+  if (!key || typeof key !== 'string') {
+    console.warn('Invalid translation key:', key);
+    return key || '';
+  }
+  return getNestedTranslation(key);
+}
+
+async function switchLanguage(language) {
+  currentLanguage = language;
+  currentTranslations = await loadTranslations(language);
+  updateUITranslations();
+  
+  // Save language preference
+  try {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ LANGUAGE: language })
+    });
+  } catch (error) {
+    console.error('Failed to save language preference:', error);
+  }
+}
+
+function setupAuthLanguageHandler() {
+  const authLanguageSelect = document.getElementById('auth-language');
+  if (authLanguageSelect) {
+    authLanguageSelect.addEventListener('change', async (e) => {
+      await switchLanguage(e.target.value);
+    });
+  }
+}
+
+function setupLanguageChangeHandler() {
+  // Handle app-language selector in Miscellaneous section
+  const appLanguageSelect = document.getElementById('app-language');
+  if (appLanguageSelect) {
+    appLanguageSelect.addEventListener('change', async (e) => {
+      await switchLanguage(e.target.value);
+      // Sync with auth-language selector if visible
+      const authLanguageSelect = document.getElementById('auth-language');
+      if (authLanguageSelect) {
+        authLanguageSelect.value = e.target.value;
+      }
+    });
+  }
+}
+
+// Get available languages from locale files
+async function getAvailableLanguages() {
+  try {
+    const response = await fetch('/api/languages');
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.warn('Failed to load available languages, using fallback');
+  }
+  
+  // Fallback to hardcoded languages if API fails
+  return [
+    { code: 'en', name: 'English' },
+    { code: 'de', name: 'Deutsch' },
+    { code: 'sv', name: 'Svenska' }
+  ];
+}
+
+// Populate language selectors dynamically
+async function populateLanguageSelectors() {
+  const languages = await getAvailableLanguages();
+  const selectors = document.querySelectorAll('#auth-language, #app-language');
+  
+  selectors.forEach(select => {
+    if (!select) return;
+    
+    // Clear existing options
+    select.innerHTML = '';
+    
+    // Add language options
+    languages.forEach(lang => {
+      const option = document.createElement('option');
+      option.value = lang.code;
+      option.textContent = lang.name;
+      select.appendChild(option);
+    });
+    
+    // Set current language
+    select.value = currentLanguage;
+  });
+}
+
+// Initialize i18n system
+async function initializeI18n() {
+  // Try to get saved language preference
+  try {
+    const response = await fetch('/api/config');
+    const config = await response.json();
+    currentLanguage = config.LANGUAGE || 'en';
+  } catch (error) {
+    console.warn('Could not load saved language, using default');
+    currentLanguage = 'en';
+  }
+  
+  // Populate language selectors
+  await populateLanguageSelectors();
+  
+  // Load translations and update UI
+  currentTranslations = await loadTranslations(currentLanguage);
+  updateUITranslations();
+  
+  // Setup change handlers
+  setupAuthLanguageHandler();
+  setupLanguageChangeHandler();
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // Initialize i18n first
+  await initializeI18n();
   const form = document.getElementById("config-form");
   const botControlBtn = document.getElementById("bot-control-btn");
   const botControlText = document.getElementById("bot-control-text");
@@ -86,6 +252,33 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       }
+      
+      // Sync app-language selector with LANGUAGE config value
+      if (config.LANGUAGE) {
+        const appLanguageSelect = document.getElementById('app-language');
+        const authLanguageSelect = document.getElementById('auth-language');
+        if (appLanguageSelect) {
+          appLanguageSelect.value = config.LANGUAGE;
+        }
+        if (authLanguageSelect) {
+          authLanguageSelect.value = config.LANGUAGE;
+        }
+        // Update global currentLanguage
+        currentLanguage = config.LANGUAGE;
+      }
+      
+      // Initialize episodes/seasons notify values
+      const episodesNotifyInput = document.getElementById("JELLYFIN_NOTIFY_EPISODES");
+      const seasonsNotifyInput = document.getElementById("JELLYFIN_NOTIFY_SEASONS");
+      
+      if (episodesNotifyInput) {
+        // Set empty string if not configured, "true" if enabled
+        episodesNotifyInput.value = config.JELLYFIN_NOTIFY_EPISODES === "true" ? "true" : "";
+      }
+      if (seasonsNotifyInput) {
+        seasonsNotifyInput.value = config.JELLYFIN_NOTIFY_SEASONS === "true" ? "true" : "";
+      }
+      
       updateWebhookUrl();
     } catch (error) {
       showToast("Error fetching configuration.");
@@ -153,7 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // User is authenticated, remove auth-mode to show header/footer
         document.body.classList.remove("auth-mode");
         showDashboard(false); // Show dashboard immediately without animation
-        logoutBtn.style.display = "block";
+        logoutBtn.classList.remove("hidden");
         fetchConfig().then(() => {
           loadDiscordGuilds();
           checkAndLoadMappingsTab();
@@ -316,7 +509,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (data.success) {
           showDashboard(true);
-          logoutBtn.style.display = "block";
+          logoutBtn.classList.remove("hidden");
           fetchConfig().then(() => {
             loadDiscordGuilds();
             checkAndLoadMappingsTab();
@@ -347,7 +540,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (data.success) {
           showDashboard(true);
-          logoutBtn.style.display = "block";
+          logoutBtn.classList.remove("hidden");
           fetchConfig().then(() => {
             loadDiscordGuilds();
             checkAndLoadMappingsTab();
@@ -391,6 +584,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const config = Object.fromEntries(filteredEntries);
 
+    // Add language setting from app-language selector
+    const appLanguageSelect = document.getElementById('app-language');
+    if (appLanguageSelect && appLanguageSelect.value) {
+      config.LANGUAGE = appLanguageSelect.value;
+    }
+
     // Explicitly capture checkbox values as "true"/"false" (except role checkboxes)
     document
       .querySelectorAll(
@@ -423,25 +622,117 @@ document.addEventListener("DOMContentLoaded", () => {
       config.JELLYFIN_NOTIFICATION_LIBRARIES = {};
     }
 
+    // Check if saving would trigger bot auto-start
+    try {
+      const autostartResponse = await fetch("/api/check-autostart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      const autostartData = await autostartResponse.json();
+
+      if (autostartData.wouldAutoStart) {
+        // Show confirmation modal
+        showBotAutostartModal(config);
+      } else {
+        // Save normally without modal
+        await saveConfig(config);
+      }
+    } catch (error) {
+      // If check fails, save normally
+      await saveConfig(config);
+    }
+  });
+
+  // Function to show bot auto-start confirmation modal
+  function showBotAutostartModal(config) {
+    const modal = document.getElementById("bot-autostart-modal");
+    const yesBtn = document.getElementById("modal-start-yes");
+    const noBtn = document.getElementById("modal-start-no");
+
+    // Show modal
+    modal.style.display = "flex";
+
+    // Handle Yes button (start bot)
+    const handleYes = async () => {
+      modal.style.display = "none";
+      config.startBot = true;
+      await saveConfig(config);
+      
+      // Wait a moment for the bot to start, then reload Discord data
+      setTimeout(async () => {
+        await loadDiscordGuilds();
+        // If a guild is already selected, reload its channels
+        const guildSelect = document.getElementById("GUILD_ID");
+        if (guildSelect && guildSelect.value) {
+          await loadDiscordChannels(guildSelect.value);
+        }
+      }, 2000);
+      
+      cleanupModal();
+    };
+
+    // Handle No button (save only)
+    const handleNo = async () => {
+      modal.style.display = "none";
+      config.startBot = false;
+      await saveConfig(config);
+      cleanupModal();
+    };
+
+    // Close modal on backdrop click
+    const handleBackdrop = (e) => {
+      if (e.target === modal) {
+        modal.style.display = "none";
+        cleanupModal();
+      }
+    };
+
+    // Close modal on Escape key
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        modal.style.display = "none";
+        cleanupModal();
+      }
+    };
+
+    // Cleanup function to remove event listeners
+    const cleanupModal = () => {
+      yesBtn.removeEventListener("click", handleYes);
+      noBtn.removeEventListener("click", handleNo);
+      modal.removeEventListener("click", handleBackdrop);
+      document.removeEventListener("keydown", handleEscape);
+    };
+
+    // Add event listeners
+    yesBtn.addEventListener("click", handleYes);
+    noBtn.addEventListener("click", handleNo);
+    modal.addEventListener("click", handleBackdrop);
+    document.addEventListener("keydown", handleEscape);
+  }
+
+  // Function to save config
+  async function saveConfig(config) {
     try {
       const response = await fetch("/api/save-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       });
-      const result = await response.json();
       if (!response.ok) {
+        const result = await response.json();
         const errorMsg =
           result.errors?.map((e) => `${e.field}: ${e.message}`).join(", ") ||
           result.message;
         showToast(`Error: ${errorMsg}`);
       } else {
+        const result = await response.json();
         showToast(result.message);
       }
     } catch (error) {
       showToast("Error saving configuration.");
     }
-  });
+  }
 
   botControlBtn.addEventListener("click", async () => {
     const action = botControlBtn.dataset.action;
@@ -453,12 +744,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const response = await fetch(`/api/${action}-bot`, { method: "POST" });
-      const result = await response.json();
       if (!response.ok) {
+        const result = await response.json();
         showToast(`Error: ${result.message}`);
         botControlText.textContent = originalText; // Restore text on failure
         botControlBtn.disabled = false;
       } else {
+        const result = await response.json();
         showToast(result.message);
         setTimeout(() => {
           fetchStatus();
@@ -561,10 +853,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Copy webhook URL
   copyWebhookBtn.addEventListener("click", () => {
     const textToCopy = webhookUrlElement.textContent;
-    
+
     // Try modern clipboard API first
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textToCopy)
+      navigator.clipboard
+        .writeText(textToCopy)
         .then(() => {
           showToast("Webhook URL copied to clipboard!");
         })
@@ -595,9 +888,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
+
     try {
-      const successful = document.execCommand('copy');
+      const successful = document.execCommand("copy");
       if (successful) {
         showToast("Webhook URL copied to clipboard!");
       } else {
@@ -606,7 +899,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       showToast("Failed to copy URL. Please copy manually.");
     }
-    
+
     document.body.removeChild(textArea);
   }
 
@@ -627,12 +920,12 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ url, apiKey }),
         });
 
-        const result = await response.json();
-
         if (response.ok) {
+          const result = await response.json();
           testJellyseerrStatus.textContent = result.message;
           testJellyseerrStatus.style.color = "var(--green)";
         } else {
+          const result = await response.json();
           throw new Error(result.message);
         }
       } catch (error) {
@@ -641,6 +934,126 @@ document.addEventListener("DOMContentLoaded", () => {
         testJellyseerrStatus.style.color = "#f38ba8"; // Red
       } finally {
         testJellyseerrBtn.disabled = false;
+      }
+    });
+  }
+
+  // Load Quality Profiles and Servers
+  const loadJellyseerrOptionsBtn = document.getElementById("load-jellyseerr-options-btn");
+  const loadJellyseerrOptionsStatus = document.getElementById("load-jellyseerr-options-status");
+  
+  if (loadJellyseerrOptionsBtn) {
+    loadJellyseerrOptionsBtn.addEventListener("click", async () => {
+      const url = document.getElementById("JELLYSEERR_URL").value;
+      const apiKey = document.getElementById("JELLYSEERR_API_KEY").value;
+
+      if (!url || !apiKey) {
+        loadJellyseerrOptionsStatus.textContent = "Enter URL and API Key first";
+        loadJellyseerrOptionsStatus.style.color = "#f38ba8";
+        return;
+      }
+
+      loadJellyseerrOptionsBtn.disabled = true;
+      loadJellyseerrOptionsStatus.textContent = "Loading...";
+      loadJellyseerrOptionsStatus.style.color = "var(--text)";
+
+      try {
+        // Fetch quality profiles
+        const profilesResponse = await fetch("/api/jellyseerr/quality-profiles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, apiKey }),
+        });
+
+        if (!profilesResponse.ok) {
+          throw new Error("Failed to fetch quality profiles");
+        }
+        const profilesResult = await profilesResponse.json();
+
+        // Fetch servers
+        const serversResponse = await fetch("/api/jellyseerr/servers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, apiKey }),
+        });
+
+        if (!serversResponse.ok) {
+          throw new Error("Failed to fetch servers");
+        }
+        const serversResult = await serversResponse.json();
+
+        // Validate API responses
+        if (!Array.isArray(profilesResult.profiles)) {
+          throw new Error("Invalid quality profiles response");
+        }
+        if (!Array.isArray(serversResult.servers)) {
+          throw new Error("Invalid servers response");
+        }
+
+        // Get current saved values
+        const movieQualitySelect = document.getElementById("DEFAULT_QUALITY_PROFILE_MOVIE");
+        const tvQualitySelect = document.getElementById("DEFAULT_QUALITY_PROFILE_TV");
+        const movieServerSelect = document.getElementById("DEFAULT_SERVER_MOVIE");
+        const tvServerSelect = document.getElementById("DEFAULT_SERVER_TV");
+
+        const savedMovieQuality = movieQualitySelect.dataset.savedValue || movieQualitySelect.value;
+        const savedTvQuality = tvQualitySelect.dataset.savedValue || tvQualitySelect.value;
+        const savedMovieServer = movieServerSelect.dataset.savedValue || movieServerSelect.value;
+        const savedTvServer = tvServerSelect.dataset.savedValue || tvServerSelect.value;
+
+        // Movie quality profiles (Radarr)
+        movieQualitySelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        const radarrProfiles = profilesResult.profiles.filter(p => p.type === "radarr");
+        radarrProfiles.forEach(profile => {
+          const option = document.createElement("option");
+          option.value = `${profile.id}|${profile.serverId}`;
+          option.textContent = `${profile.name} (${profile.serverName})`;
+          movieQualitySelect.appendChild(option);
+        });
+        if (savedMovieQuality) movieQualitySelect.value = savedMovieQuality;
+
+        // TV quality profiles (Sonarr)
+        tvQualitySelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        const sonarrProfiles = profilesResult.profiles.filter(p => p.type === "sonarr");
+        sonarrProfiles.forEach(profile => {
+          const option = document.createElement("option");
+          option.value = `${profile.id}|${profile.serverId}`;
+          option.textContent = `${profile.name} (${profile.serverName})`;
+          tvQualitySelect.appendChild(option);
+        });
+        if (savedTvQuality) tvQualitySelect.value = savedTvQuality;
+
+        // Movie servers (Radarr)
+        movieServerSelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        const radarrServers = serversResult.servers.filter(s => s.type === "radarr");
+        radarrServers.forEach(server => {
+          const option = document.createElement("option");
+          option.value = `${server.id}|${server.type}`;
+          option.textContent = `${server.name}${server.isDefault ? " (default)" : ""}`;
+          movieServerSelect.appendChild(option);
+        });
+        if (savedMovieServer) movieServerSelect.value = savedMovieServer;
+
+        // TV servers (Sonarr)
+        tvServerSelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        const sonarrServers = serversResult.servers.filter(s => s.type === "sonarr");
+        sonarrServers.forEach(server => {
+          const option = document.createElement("option");
+          option.value = `${server.id}|${server.type}`;
+          option.textContent = `${server.name}${server.isDefault ? " (default)" : ""}`;
+          tvServerSelect.appendChild(option);
+        });
+        if (savedTvServer) tvServerSelect.value = savedTvServer;
+
+        const totalProfiles = radarrProfiles.length + sonarrProfiles.length;
+        const totalServers = radarrServers.length + sonarrServers.length;
+        loadJellyseerrOptionsStatus.textContent = `Loaded ${totalProfiles} profiles, ${totalServers} servers`;
+        loadJellyseerrOptionsStatus.style.color = "var(--green)";
+      } catch (error) {
+        loadJellyseerrOptionsStatus.textContent = error.message || "Failed to load options";
+        loadJellyseerrOptionsStatus.style.color = "#f38ba8";
+      } finally {
+        loadJellyseerrOptionsBtn.disabled = false;
       }
     });
   }
@@ -662,9 +1075,8 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ url, apiKey }),
         });
 
-        const result = await response.json();
-
         if (response.ok) {
+          const result = await response.json();
           testJellyfinStatus.textContent = result.message;
           testJellyfinStatus.style.color = "var(--green)";
 
@@ -683,6 +1095,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }
         } else {
+          const result = await response.json();
           throw new Error(result.message);
         }
       } catch (error) {
@@ -693,6 +1106,62 @@ document.addEventListener("DOMContentLoaded", () => {
         testJellyfinBtn.disabled = false;
       }
     });
+  }
+
+  // Test Notification Buttons
+  const testNotificationStatus = document.getElementById("test-notification-status");
+  const testMovieBtn = document.getElementById("test-movie-notification-btn");
+  const testSeriesBtn = document.getElementById("test-series-notification-btn");
+  const testSeasonBtn = document.getElementById("test-season-notification-btn");
+  const testBatchSeasonsBtn = document.getElementById("test-batch-seasons-notification-btn");
+  const testEpisodesBtn = document.getElementById("test-episodes-notification-btn");
+  const testBatchEpisodesBtn = document.getElementById("test-batch-episodes-notification-btn");
+
+  async function sendTestNotification(type) {
+    const statusEl = testNotificationStatus;
+    if (!statusEl) return;
+
+    statusEl.textContent = `Sending test ${type} notification...`;
+    statusEl.style.color = "var(--text)";
+
+    try {
+      const response = await fetch("/api/test-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        statusEl.textContent = result.message || `Test ${type} notification sent successfully!`;
+        statusEl.style.color = "var(--green)";
+      } else {
+        throw new Error(result.message || "Failed to send test notification");
+      }
+    } catch (error) {
+      statusEl.textContent = error.message || `Failed to send test ${type} notification`;
+      statusEl.style.color = "#f38ba8"; // Red
+    }
+  }
+
+  if (testMovieBtn) {
+    testMovieBtn.addEventListener("click", () => sendTestNotification("movie"));
+  }
+  if (testSeriesBtn) {
+    testSeriesBtn.addEventListener("click", () => sendTestNotification("series"));
+  }
+  if (testSeasonBtn) {
+    testSeasonBtn.addEventListener("click", () => sendTestNotification("season"));
+  }
+  if (testBatchSeasonsBtn) {
+    testBatchSeasonsBtn.addEventListener("click", () => sendTestNotification("batch-seasons"));
+  }
+  if (testEpisodesBtn) {
+    testEpisodesBtn.addEventListener("click", () => sendTestNotification("episodes"));
+  }
+  if (testBatchEpisodesBtn) {
+    testBatchEpisodesBtn.addEventListener("click", () => sendTestNotification("batch-episodes"));
   }
 
   // Fetch and display Jellyfin libraries for notifications
@@ -731,9 +1200,14 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ url, apiKey }),
         });
 
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.message || "Failed to fetch libraries");
+        }
+
         const result = await response.json();
 
-        if (response.ok && result.success) {
+        if (result.success) {
           const libraries = result.libraries || [];
 
           if (libraries.length === 0) {
@@ -804,6 +1278,62 @@ document.addEventListener("DOMContentLoaded", () => {
               })
               .join("");
 
+            // Add TV Seasons and Episodes section
+            const episodesEnabled = document.getElementById("JELLYFIN_NOTIFY_EPISODES").value === "true";
+            const seasonsEnabled = document.getElementById("JELLYFIN_NOTIFY_SEASONS").value === "true";
+            const episodeChannel = document.getElementById("JELLYFIN_EPISODE_CHANNEL_ID").value || "";
+            const seasonChannel = document.getElementById("JELLYFIN_SEASON_CHANNEL_ID").value || "";
+
+            librariesList.innerHTML += `
+              <div style="padding: 1rem 0.75rem 0.5rem; margin-top: 1rem; border-top: 1px solid var(--surface1);">
+                <span style="font-size: 0.9rem; font-weight: 600; color: var(--mauve); text-transform: uppercase; letter-spacing: 0.05em;">TV Seasons and Episodes Mapping</span>
+              </div>
+              
+              <div class="library-item">
+                <label class="library-label">
+                  <input
+                    type="checkbox"
+                    id="episodes-notify-checkbox"
+                    class="library-checkbox"
+                    ${episodesEnabled ? "checked" : ""}
+                  />
+                  <div class="library-info">
+                    <span class="library-name">Episodes</span>
+                    <span class="library-type">New episode notifications</span>
+                  </div>
+                </label>
+                <select
+                  id="episodes-channel-select"
+                  class="library-channel-select"
+                  ${!episodesEnabled ? "disabled" : ""}
+                >
+                  <option value="">Use Default Channel</option>
+                </select>
+              </div>
+
+              <div class="library-item">
+                <label class="library-label">
+                  <input
+                    type="checkbox"
+                    id="seasons-notify-checkbox"
+                    class="library-checkbox"
+                    ${seasonsEnabled ? "checked" : ""}
+                  />
+                  <div class="library-info">
+                    <span class="library-name">Seasons</span>
+                    <span class="library-type">New season notifications</span>
+                  </div>
+                </label>
+                <select
+                  id="seasons-channel-select"
+                  class="library-channel-select"
+                  ${!seasonsEnabled ? "disabled" : ""}
+                >
+                  <option value="">Use Default Channel</option>
+                </select>
+              </div>
+            `;
+
             // Populate channel dropdowns
             populateLibraryChannelDropdowns(libraryChannels);
 
@@ -830,13 +1360,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 select.addEventListener("change", updateNotificationLibraries);
               });
 
+            // Add event listeners for Episodes and Seasons checkboxes
+            const episodesCheckbox = document.getElementById("episodes-notify-checkbox");
+            const seasonsCheckbox = document.getElementById("seasons-notify-checkbox");
+            const episodesSelect = document.getElementById("episodes-channel-select");
+            const seasonsSelect = document.getElementById("seasons-channel-select");
+
+            if (episodesCheckbox && episodesSelect) {
+              episodesCheckbox.addEventListener("change", (e) => {
+                episodesSelect.disabled = !e.target.checked;
+                document.getElementById("JELLYFIN_NOTIFY_EPISODES").value = e.target.checked ? "true" : "";
+              });
+              episodesSelect.addEventListener("change", (e) => {
+                document.getElementById("JELLYFIN_EPISODE_CHANNEL_ID").value = e.target.value;
+              });
+            }
+
+            if (seasonsCheckbox && seasonsSelect) {
+              seasonsCheckbox.addEventListener("change", (e) => {
+                seasonsSelect.disabled = !e.target.checked;
+                document.getElementById("JELLYFIN_NOTIFY_SEASONS").value = e.target.checked ? "true" : "";
+              });
+              seasonsSelect.addEventListener("change", (e) => {
+                document.getElementById("JELLYFIN_SEASON_CHANNEL_ID").value = e.target.value;
+              });
+            }
+
             // DON'T call updateNotificationLibraries() here - it would overwrite the saved config
             // The hidden input already has the correct value from fetchConfig()
           }
 
           // Libraries loaded successfully
-        } else {
-          throw new Error(result.message || "Failed to fetch libraries");
         }
       } catch (error) {
         librariesList.innerHTML = `<div style="padding: 1rem; color: var(--red); background: var(--surface0); border-radius: 6px;">
@@ -889,6 +1443,44 @@ document.addEventListener("DOMContentLoaded", () => {
           select.value = currentChannel;
         }
       });
+
+      // Populate Episodes and Seasons channel selects
+      const episodesSelect = document.getElementById("episodes-channel-select");
+      const seasonsSelect = document.getElementById("seasons-channel-select");
+      const episodeChannel = document.getElementById("JELLYFIN_EPISODE_CHANNEL_ID").value || "";
+      const seasonChannel = document.getElementById("JELLYFIN_SEASON_CHANNEL_ID").value || "";
+
+      if (episodesSelect) {
+        episodesSelect.innerHTML =
+          '<option value="">Use Default Channel</option>' +
+          channels
+            .map(
+              (ch) =>
+                `<option value="${ch.id}" ${
+                  episodeChannel === ch.id ? "selected" : ""
+                }>#${ch.name}</option>`
+            )
+            .join("");
+        if (episodeChannel) {
+          episodesSelect.value = episodeChannel;
+        }
+      }
+
+      if (seasonsSelect) {
+        seasonsSelect.innerHTML =
+          '<option value="">Use Default Channel</option>' +
+          channels
+            .map(
+              (ch) =>
+                `<option value="${ch.id}" ${
+                  seasonChannel === ch.id ? "selected" : ""
+                }>#${ch.name}</option>`
+            )
+            .join("");
+        if (seasonChannel) {
+          seasonsSelect.value = seasonChannel;
+        }
+      }
     } catch (error) {}
   }
 
@@ -967,58 +1559,136 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } else {
         guildSelect.innerHTML =
-          '<option value="">Error loading servers. Check token.</option>';
+          `<option value="">${t('errors.loading_servers_check_token')}</option>`;
       }
     } catch (error) {
-      guildSelect.innerHTML = '<option value="">Error loading servers</option>';
+      guildSelect.innerHTML = `<option value="">${t('errors.loading_servers')}</option>`;
     }
   }
 
   async function loadDiscordChannels(guildId) {
     const channelSelect = document.getElementById("JELLYFIN_CHANNEL_ID");
+    const episodeChannelSelect = document.getElementById("JELLYFIN_EPISODE_CHANNEL_ID");
+    const seasonChannelSelect = document.getElementById("JELLYFIN_SEASON_CHANNEL_ID");
 
-    if (!channelSelect || !guildId) {
+    if (!guildId) {
       if (channelSelect) {
         channelSelect.innerHTML =
           '<option value="">Select a server first...</option>';
       }
+      if (episodeChannelSelect) {
+        episodeChannelSelect.innerHTML =
+          `<option value="">${t('config.use_default_channel')}</option>`;
+      }
+      if (seasonChannelSelect) {
+        seasonChannelSelect.innerHTML =
+          `<option value="">${t('config.use_default_channel')}</option>`;
+      }
       return;
     }
 
-    channelSelect.innerHTML = '<option value="">Loading channels...</option>';
+    // Set loading state for all selects
+    if (channelSelect) {
+      channelSelect.innerHTML = '<option value="">Loading channels...</option>';
+    }
+    if (episodeChannelSelect) {
+      episodeChannelSelect.innerHTML = '<option value="">Loading channels...</option>';
+    }
+    if (seasonChannelSelect) {
+      seasonChannelSelect.innerHTML = '<option value="">Loading channels...</option>';
+    }
 
     try {
       const response = await fetch(`/api/discord/channels/${guildId}`);
       const data = await response.json();
 
       if (data.success && data.channels) {
-        channelSelect.innerHTML =
-          '<option value="">Select a channel...</option>';
-        data.channels.forEach((channel) => {
-          const option = document.createElement("option");
-          option.value = channel.id;
-          option.textContent = `#${channel.name}${
-            channel.type === "announcement" ? " 📢" : ""
-          }`;
-          channelSelect.appendChild(option);
-        });
+        // Populate main channel select
+        if (channelSelect) {
+          channelSelect.innerHTML =
+            '<option value="">Select a channel...</option>';
+          data.channels.forEach((channel) => {
+            const option = document.createElement("option");
+            option.value = channel.id;
+            option.textContent = `#${channel.name}${
+              channel.type === "announcement" ? " 📢" : ""
+            }`;
+            channelSelect.appendChild(option);
+          });
 
-        // Restore saved value if exists
-        const currentValue = channelSelect.dataset.savedValue;
-        if (currentValue) {
-          channelSelect.value = currentValue;
-          // Verify if the value was successfully set
-          if (channelSelect.value === currentValue) {
-            // Value was successfully restored
+          // Restore saved value if exists
+          const currentValue = channelSelect.dataset.savedValue;
+          if (currentValue) {
+            channelSelect.value = currentValue;
+          }
+        }
+
+        // Populate episode channel select (optional)
+        if (episodeChannelSelect) {
+          episodeChannelSelect.innerHTML =
+            `<option value="">${t('config.use_default_channel')}</option>`;
+          data.channels.forEach((channel) => {
+            const option = document.createElement("option");
+            option.value = channel.id;
+            option.textContent = `#${channel.name}${
+              channel.type === "announcement" ? " 📢" : ""
+            }`;
+            episodeChannelSelect.appendChild(option);
+          });
+
+          // Restore saved value if exists
+          const currentValue = episodeChannelSelect.dataset.savedValue;
+          if (currentValue) {
+            episodeChannelSelect.value = currentValue;
+          }
+        }
+
+        // Populate season channel select (optional)
+        if (seasonChannelSelect) {
+          seasonChannelSelect.innerHTML =
+            `<option value="">${t('config.use_default_channel')}</option>`;
+          data.channels.forEach((channel) => {
+            const option = document.createElement("option");
+            option.value = channel.id;
+            option.textContent = `#${channel.name}${
+              channel.type === "announcement" ? " 📢" : ""
+            }`;
+            seasonChannelSelect.appendChild(option);
+          });
+
+          // Restore saved value if exists
+          const currentValue = seasonChannelSelect.dataset.savedValue;
+          if (currentValue) {
+            seasonChannelSelect.value = currentValue;
           }
         }
       } else {
-        channelSelect.innerHTML =
-          '<option value="">Error loading channels</option>';
+        if (channelSelect) {
+          channelSelect.innerHTML =
+            `<option value="">${t('errors.loading_channels')}</option>`;
+        }
+        if (episodeChannelSelect) {
+          episodeChannelSelect.innerHTML =
+            `<option value="">${t('config.use_default_channel')}</option>`;
+        }
+        if (seasonChannelSelect) {
+          seasonChannelSelect.innerHTML =
+            `<option value="">${t('config.use_default_channel')}</option>`;
+        }
       }
     } catch (error) {
-      channelSelect.innerHTML =
-        '<option value="">Error loading channels</option>';
+      if (channelSelect) {
+        channelSelect.innerHTML =
+          `<option value="">${t('errors.loading_channels')}</option>`;
+      }
+      if (episodeChannelSelect) {
+        episodeChannelSelect.innerHTML =
+          `<option value="">${t('config.use_default_channel')}</option>`;
+      }
+      if (seasonChannelSelect) {
+        seasonChannelSelect.innerHTML =
+          `<option value="">${t('config.use_default_channel')}</option>`;
+      }
     }
   }
 
@@ -1030,9 +1700,20 @@ document.addEventListener("DOMContentLoaded", () => {
         loadDiscordChannels(e.target.value);
       } else {
         const channelSelect = document.getElementById("JELLYFIN_CHANNEL_ID");
+        const episodeChannelSelect = document.getElementById("JELLYFIN_EPISODE_CHANNEL_ID");
+        const seasonChannelSelect = document.getElementById("JELLYFIN_SEASON_CHANNEL_ID");
+        
         if (channelSelect) {
           channelSelect.innerHTML =
             '<option value="">Select a server first...</option>';
+        }
+        if (episodeChannelSelect) {
+          episodeChannelSelect.innerHTML =
+            `<option value="">${t('config.use_default_channel')}</option>`;
+        }
+        if (seasonChannelSelect) {
+          seasonChannelSelect.innerHTML =
+            `<option value="">${t('config.use_default_channel')}</option>`;
         }
       }
     });
@@ -1055,6 +1736,28 @@ document.addEventListener("DOMContentLoaded", () => {
       if (botIdInput.value && tokenInput?.value) {
         loadDiscordGuilds();
       }
+    });
+  }
+
+  // --- Episodes and Seasons Notification Controls ---
+  const episodesCheckbox = document.getElementById("JELLYFIN_NOTIFY_EPISODES_CHECKBOX");
+  const seasonsCheckbox = document.getElementById("JELLYFIN_NOTIFY_SEASONS_CHECKBOX");
+  const episodeChannelSelect = document.getElementById("JELLYFIN_EPISODE_CHANNEL_ID");
+  const seasonChannelSelect = document.getElementById("JELLYFIN_SEASON_CHANNEL_ID");
+  const episodesHidden = document.getElementById("JELLYFIN_NOTIFY_EPISODES");
+  const seasonsHidden = document.getElementById("JELLYFIN_NOTIFY_SEASONS");
+
+  if (episodesCheckbox && episodeChannelSelect && episodesHidden) {
+    episodesCheckbox.addEventListener("change", (e) => {
+      episodeChannelSelect.disabled = !e.target.checked;
+      episodesHidden.value = e.target.checked ? "true" : "false";
+    });
+  }
+
+  if (seasonsCheckbox && seasonChannelSelect && seasonsHidden) {
+    seasonsCheckbox.addEventListener("change", (e) => {
+      seasonChannelSelect.disabled = !e.target.checked;
+      seasonsHidden.value = e.target.checked ? "true" : "false";
     });
   }
 
@@ -1133,7 +1836,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (customSelect) {
           const trigger = customSelect.querySelector(".custom-select-trigger");
           if (trigger) {
-            trigger.placeholder = "Error loading members. Is bot running?";
+            trigger.placeholder = t('errors.loading_members_bot_running');
           }
         }
       }
@@ -1142,7 +1845,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (customSelect) {
         const trigger = customSelect.querySelector(".custom-select-trigger");
         if (trigger) {
-          trigger.placeholder = "Error loading members";
+          trigger.placeholder = t('errors.loading_members');
         }
       }
     }
@@ -1631,36 +2334,80 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Refresh Discord Users button
-  const refreshDiscordUsersBtn = document.getElementById("refresh-discord-users-btn");
-  if (refreshDiscordUsersBtn) {
-    refreshDiscordUsersBtn.addEventListener("click", async () => {
-      refreshDiscordUsersBtn.disabled = true;
-      const originalHtml = refreshDiscordUsersBtn.innerHTML;
-      refreshDiscordUsersBtn.innerHTML = '<i class="bi bi-arrow-clockwise" style="animation: spin 1s linear infinite;"></i> Loading...';
+  // Refresh All Users button (Discord + Jellyseerr)
+  const refreshAllUsersBtn = document.getElementById("refresh-all-users-btn");
+  if (refreshAllUsersBtn) {
+    refreshAllUsersBtn.addEventListener("click", async () => {
+      refreshAllUsersBtn.disabled = true;
+      const originalHtml = refreshAllUsersBtn.innerHTML;
+      refreshAllUsersBtn.innerHTML =
+        '<i class="bi bi-arrow-clockwise" style="animation: spin 1s linear infinite;"></i> Loading...';
 
       try {
-        // Clear cache and force refresh
+        // Clear local caches
         localStorage.removeItem(DISCORD_MEMBERS_CACHE_KEY);
-        membersLoaded = false; // Reset loaded flag to force reload
+        localStorage.removeItem(JELLYSEERR_USERS_CACHE_KEY);
+        membersLoaded = false;
+        usersLoaded = false;
 
-        const response = await fetch("/api/discord-members");
-        const data = await response.json();
+        // Fetch both in parallel for better performance
+        const [discordResponse, jellyseerrResponse] = await Promise.all([
+          fetch("/api/discord-members"),
+          fetch("/api/jellyseerr-users"),
+        ]);
 
-        if (data.success && data.members) {
-          discordMembers = data.members;
+        const discordData = await discordResponse.json();
+        const jellyseerrData = await jellyseerrResponse.json();
+
+        let successCount = 0;
+        const messages = [];
+
+        // Process Discord members
+        if (discordData.success && discordData.members) {
+          discordMembers = discordData.members;
           membersLoaded = true;
-          saveToCache(DISCORD_MEMBERS_CACHE_KEY, data.members);
+          saveToCache(DISCORD_MEMBERS_CACHE_KEY, discordData.members);
           populateDiscordMemberSelect();
-          showToast("Discord users refreshed successfully!");
+          successCount++;
+          messages.push(
+            discordData.fetchedRealtime
+              ? "Discord (real-time)"
+              : "Discord (cached)"
+          );
         } else {
-          throw new Error(data.message || "Failed to load Discord members");
+          messages.push("Discord ❌");
+        }
+
+        // Process Jellyseerr users
+        if (jellyseerrData.success && jellyseerrData.users) {
+          jellyseerrUsers = jellyseerrData.users;
+          usersLoaded = true;
+          saveToCache(JELLYSEERR_USERS_CACHE_KEY, jellyseerrData.users);
+          populateJellyseerrUserSelect();
+          successCount++;
+          messages.push(
+            jellyseerrData.fetchedRealtime
+              ? "Jellyseerr (real-time)"
+              : "Jellyseerr"
+          );
+        } else {
+          messages.push("Jellyseerr ❌");
+        }
+
+        // Show combined status
+        if (successCount === 2) {
+          showToast(`✅ Users refreshed: ${messages.join(", ")}`);
+        } else if (successCount === 1) {
+          showToast(`⚠️ Partial refresh: ${messages.join(", ")}`);
+        } else {
+          throw new Error("Failed to refresh users");
         }
       } catch (error) {
-        showToast("Failed to refresh Discord users. Is the bot running?");
+        console.error("Refresh users error:", error);
+        showToast("Failed to refresh users. Check connections.");
       } finally {
-        refreshDiscordUsersBtn.disabled = false;
-        refreshDiscordUsersBtn.innerHTML = originalHtml;
+        refreshAllUsersBtn.disabled = false;
+        refreshAllUsersBtn.innerHTML = originalHtml;
       }
     });
   }
@@ -1917,9 +2664,9 @@ document.addEventListener("DOMContentLoaded", () => {
         populateRoleList("blocklist-roles", blocklist);
       } else {
         document.getElementById("allowlist-roles").innerHTML =
-          '<p class="form-text" style="opacity: 0.7; font-style: italic;">Bot must be running to load roles</p>';
+          `<p class="form-text" style="opacity: 0.7; font-style: italic;">${t('errors.bot_must_be_running')}</p>`;
         document.getElementById("blocklist-roles").innerHTML =
-          '<p class="form-text" style="opacity: 0.7; font-style: italic;">Bot must be running to load roles</p>';
+          `<p class="form-text" style="opacity: 0.7; font-style: italic;">${t('errors.bot_must_be_running')}</p>`;
       }
     } catch (error) {}
   }
@@ -1930,7 +2677,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (guildRoles.length === 0) {
       container.innerHTML =
-        '<p class="form-text" style="opacity: 0.7; font-style: italic;">No roles available</p>';
+        `<p class="form-text" style="opacity: 0.7; font-style: italic;">${t('errors.no_roles_available')}</p>`;
       return;
     }
 
@@ -2078,7 +2825,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       logsContainer.innerHTML = truncationNotice + logsHtml;
     } catch (error) {
-      logsContainer.innerHTML = `<div class="logs-empty">Error loading logs: ${error.message}</div>`;
+      logsContainer.innerHTML = `<div class="logs-empty">${t('errors.loading_logs')}: ${escapeHtml(error.message)}</div>`;
     }
   }
 
@@ -2203,13 +2950,14 @@ document.addEventListener("DOMContentLoaded", () => {
       botControlTextLogs.textContent = "Processing...";
 
       const response = await fetch(endpoint, { method: "POST" });
-      const data = await response.json();
 
       if (!response.ok) {
+        const data = await response.json();
         showToast(`Error: ${data.message}`);
         botControlTextLogs.textContent = originalText;
         botControlBtnLogs.disabled = false;
       } else {
+        const data = await response.json();
         showToast(data.message);
         setTimeout(async () => {
           await updateBotControlButtonLogs();
@@ -2258,4 +3006,111 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     });
+
+  // --- Hide/Show Header Functionality ---
+  const hideHeaderBtn = document.getElementById("hide-header-btn");
+  const showHeaderBtn = document.getElementById("show-header-btn");
+  const HEADER_VISIBILITY_KEY = "anchorr_header_visible";
+
+  // Load header visibility state from localStorage
+  function loadHeaderVisibilityState() {
+    const stored = localStorage.getItem(HEADER_VISIBILITY_KEY);
+    if (stored === null) {
+      return true; // Default to visible
+    }
+    return stored === "true";
+  }
+
+  // Save header visibility state to localStorage
+  function saveHeaderVisibilityState(isVisible) {
+    localStorage.setItem(HEADER_VISIBILITY_KEY, isVisible ? "true" : "false");
+    // Also save to config.json
+    saveHeaderVisibilityToConfig(isVisible);
+  }
+
+  // Save to config.json on server
+  async function saveHeaderVisibilityToConfig(isVisible) {
+    try {
+      // Create minimal config update with just HEADER_VISIBLE
+      const updateData = {
+        HEADER_VISIBLE: isVisible ? "true" : "false",
+      };
+
+      await fetch("/api/save-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+    } catch (error) {
+      // Silent fail - localStorage is enough for UI state
+    }
+  }
+
+  // Hide header with animation
+  // Hide header with animation
+  function hideHeader() {
+    mainHero.classList.add("collapsed");
+    hideHeaderBtn.classList.remove("visible");
+    showHeaderBtn.classList.add("visible");
+    // Ensure visibility regardless of CSS parsing
+    if (showHeaderBtn) showHeaderBtn.style.display = "flex";
+    saveHeaderVisibilityState(false);
+  }
+
+  // Show header with animation
+  function showHeader() {
+    mainHero.classList.remove("collapsed");
+    showHeaderBtn.classList.remove("visible");
+    hideHeaderBtn.classList.add("visible");
+    if (showHeaderBtn) showHeaderBtn.style.display = "none";
+    saveHeaderVisibilityState(true);
+  }
+
+  // Event listeners for hide/show buttons
+  if (hideHeaderBtn) {
+    hideHeaderBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      hideHeader();
+    });
+  }
+
+  if (showHeaderBtn) {
+    showHeaderBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showHeader();
+    });
+  }
+
+  // Initialize header visibility state on page load
+  function initializeHeaderVisibility() {
+    // Skip if on auth page (hero is full-screen during auth)
+    if (document.body.classList.contains("auth-mode")) {
+      return;
+    }
+
+    const isVisible = loadHeaderVisibilityState();
+    if (!isVisible) {
+      // Apply collapsed state without animation on page load
+      mainHero.classList.add("collapsed");
+      hideHeaderBtn.classList.remove("visible");
+      showHeaderBtn.classList.add("visible");
+      if (showHeaderBtn) showHeaderBtn.style.display = "flex";
+    } else {
+      mainHero.classList.remove("collapsed");
+      hideHeaderBtn.classList.add("visible");
+      showHeaderBtn.classList.remove("visible");
+      if (showHeaderBtn) showHeaderBtn.style.display = "none";
+    }
+
+    // Enable animations after initialization
+    mainHero.classList.remove("no-animate");
+  }
+
+  // Call initialization after auth check completes
+  // We need to wait a bit for checkAuth to complete
+  setTimeout(() => {
+    initializeHeaderVisibility();
+  }, 100);
 });

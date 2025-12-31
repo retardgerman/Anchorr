@@ -35,6 +35,7 @@ I also have a dedicated channel on the [r/JellyfinCommunity](https://discord.gg/
 - **🔥 Trending Content**: Browse weekly trending movies and TV shows with `/trending` command
 - **📤 One-Click Requests**: Directly request media to Jellyseerr with `/request` command
 - **📺 Smart TV Handling**: Choose specific seasons when searching for TV series using `/search`, or request all the seasons at once with `/request`
+- **🎚️ Server and Quality**: Choose which Radarr or Sonarr instance to request to, and which quality profile
 - **🚫 Duplicate Detection**: Automatically checks if content already exists in Jellyseerr before allowing requests
 - **🏷️ Tag Selection**: Select Radarr/Sonarr tags when requesting media for better organization and categorization
 - **📬 Jellyfin Notifications**: Automatic Discord notifications when new media is added to your library
@@ -43,6 +44,7 @@ I also have a dedicated channel on the [r/JellyfinCommunity](https://discord.gg/
 - **🔐 Role-Based Permissions**: Control who can use bot commands through Discord roles (allowlist/blocklist)
 - **🔔 Private Notifications**: Optional PM when your requested content becomes available on Jellyfin
 - **👻 Ephemeral Mode**: Make bot responses visible only to the command user
+- **🌍 Multi-Language Support**: Fully translated interface with automatic language detection
 - **🎨 Rich Embeds**: Beautiful, detailed embeds with:
   - Movie/TV show posters and backdrops
   - Director/Creator information
@@ -255,6 +257,68 @@ docker run -d \
 ## 🤝 Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+### 🌍 Adding Translations
+
+Help make Anchorr accessible to more users by contributing translations! The system now automatically detects and loads new languages.
+
+**Quick start:**
+```bash
+npm run create-translation es "Español" "Your Name"
+```
+
+See [TRANSLATION_GUIDE.md](./TRANSLATION_GUIDE.md) for detailed instructions.
+
+## 👥 Contributors
+
+A huge thank you to all the amazing people who have contributed to making Anchorr better! 🎉
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/nairdahh">
+        <img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/nairdahh?v=4&h=80&w=80&fit=cover&mask=circle&maxage=7d" border="0" style="border:none;" />
+        <br/>
+        <sub><b>nairdahh</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/lucideds">
+        <img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/lucideds?v=4&h=80&w=80&fit=cover&mask=circle&maxage=7d" border="0" style="border:none;" />
+        <br/>
+        <sub><b>lucideds</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/retardgerman">
+        <img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/retardgerman?v=4&h=80&w=80&fit=cover&mask=circle&maxage=7d" border="0" style="border:none;" />
+        <br/>
+        <sub><b>retardgerman</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/TheColorman">
+        <img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/TheColorman?v=4&h=80&w=80&fit=cover&mask=circle&maxage=7d" border="0" style="border:none;" />
+        <br/>
+        <sub><b>TheColorman</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/IPvNick">
+        <img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/IPvNick?v=4&h=80&w=80&fit=cover&mask=circle&maxage=7d" border="0" style="border:none;" />
+        <br/>
+        <sub><b>IPvNick</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/whoopsi-daisy">
+        <img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/whoopsi-daisy?v=4&h=80&w=80&fit=cover&mask=circle&maxage=7d" border="0" style="border:none;" />
+        <br/>
+        <sub><b>whoopsi-daisy</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
 
 ## 📄 License
 

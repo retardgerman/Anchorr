@@ -1,0 +1,221 @@
+{
+  "_meta": {
+    "language_name": "Svenska",
+    "language_code": "sv",
+    "contributors": ["Simon Eklundh", "GitHub Copilot"],
+    "completion": "100%",
+    "last_updated": "2025-12-23",
+    "notes": "Complete Swedish translation - all sections translated, merged PR improvements"
+  },
+  "common": {
+    "yes": "Ja",
+    "no": "Nej",
+    "save": "Spara",
+    "cancel": "Avbryt",
+    "delete": "Ta bort",
+    "edit": "Redigera",
+    "loading": "Laddar",
+    "error": "Fel",
+    "success": "succé",
+    "username": "Användarnamn",
+    "password": "Lösenord"
+  },
+  "auth": {
+    "login": "Logga in",
+    "register": "Registrera",
+    "create_account": "Skapa konto",
+    "enter_username": "Ange användarnamn",
+    "enter_password": "Ange lösenord",
+    "choose_username": "Välj användarnamn",
+    "choose_password": "Välj lösenord",
+    "choose_username_placeholder": "Användarnamn",
+    "choose_password_placeholder": "Lösenord",
+    "no_account": "Har du inget konto?",
+    "have_account": "Har du redan ett konto?"
+  },
+  "navigation": {
+    "dashboard": "Instrumentpanel",
+    "configuration": "Konfiguration",
+    "logs": "Loggar",
+    "users": "Användare"
+  },
+  "dashboard": {
+    "title": "Anchorr Konfiguration",
+    "subtitle": "Anchorr behöver anslutas till dina Jellyfin- och Jellyseerr-instanser.",
+    "subtitle_detail": "Nedan följer en steg-för-steg-guide som hjälper dig att komma igång."
+  },
+  "config": {
+    "title": "Inställningar",
+    "general_settings": "Allmänna inställningar",
+    "discord_section": "Discord inställningar",
+    "jellyfin_section": "Jellyfin notifieringsinställningar",
+    "jellyseerr_section": "Jellyseerr inställningar",
+    "media_section": "Mediedatabas inställningar",
+    "nav_discord": "1. Discord",
+    "nav_jellyseerr": "2. Jellyseerr",
+    "nav_media": "3. Mediedatabaser",
+    "nav_jellyfin": "4. Jellyfin notifieringar",
+    "nav_mappings": "5. Användarmappning",
+    "nav_roles": "6. Rollbehörigheter",
+    "nav_misc": "7. Diverse",
+    "start_bot": "Starta bot",
+    "language": "Språk",
+    "language_help": "Välj språk för gränssnittet",
+    "discord_instructions_intro": "Först behöver du skapa en Discord applikation för boten. gå till <a href=\"https://discord.com/developers/applications\" target=\"_blank\" rel=\"noopener noreferrer\">Discord Developer Portal</a> och logga in. skapa en ny applikation och sen:",
+    "discord_instructions_1": "Gå till <strong>\"Bot\"</strong> i den vänstra menyn och klicka på <strong>\"Add Bot\"</strong>",
+    "discord_instructions_2": "I <strong>\"Bot\"</strong> sektionen, scrolla ner till <strong>\"Privileged Gateway Intents\"</strong> och sätt på <code>SERVER MEMBERS INTENT</code> (krävs för att kunna koppla discordkonton och seerr)",
+    "discord_instructions_3": "Gå till <strong>\"OAuth2\"</strong> → <strong>\"URL Generator\"</strong>",
+    "discord_instructions_4": "Välj scopes: <code>bot</code> och <code>applications.commands</code>",
+    "discord_instructions_5": "Välj behörigheter: <code>Send Messages</code> and <code>Embed Links</code>",
+    "discord_instructions_6": "Kopiera den genererade länken och öppna i din webbläsare. Auktorisera sedan botten i din server.",
+    "discord_instructions_7": "Kom tillbaks hit och fyll i <strong>Discord Bot Token</strong> och <strong>Bot Client ID</strong>här nedan. väljd sedan server och notifikationskanal från menyn här nedan",
+    "discord_token": "Discord bottoken",
+    "discord_token_help": "Klistra in din Discord-token här",
+    "bot_id": "Bot-ID",
+    "bot_id_help": "Unikt ID för din bot",
+    "auto_start_info": "Starta automatiskt vid uppstart",
+    "discord_server": "Discord-server",
+    "loading_servers": "Laddar servrar...",
+    "discord_server_help": "Välj server för boten",
+    "default_channel": "Standardkanal för notifieringar",
+    "episode_channel": "Avsnittkanal (Valfritt)",
+    "episode_channel_help": "Valfritt: Välj en annan kanal specifikt för avsnittnotiser. Lämna tom för att använda standardkanalen.",
+    "season_channel": "Säsongskanal (Valfritt)",
+    "season_channel_help": "Valfritt: Välj en annan kanal specifikt för säsongsnotiser. Lämna tom för att använda standardkanalen.",
+    "use_default_channel": "Använd standardkanal",
+    "select_server_first": "Välj server först...",
+    "default_channel_help": "Välj standard Discord-kanal för Jellyfin-notifieringar. Du kan åsidosätta detta per bibliotek i Steg 4. Välj en server ovan först.",
+    "jellyseerr_url": "Jellyseerr-URL",
+    "jellyseerr_url_help": "Ange Jellyseerr-URL",
+    "jellyseerr_api_key": "Jellyseerr API-nyckel",
+    "jellyseerr_api_key_help": "Ange Jellyseerr API-nyckel",
+    "test_connection": "Testa anslutning",
+    "tmdb_api_key": "TMDB API-nyckel",
+    "tmdb_api_key_help": "Ange TMDB API-nyckel",
+    "omdb_api_key": "OMDB API-nyckel",
+    "omdb_api_key_help": "Ange OMDB API-nyckel",
+    "jellyfin_url": "Jellyfin-URL",
+    "jellyfin_url_help": "Ange Jellyfin-URL",
+    "jellyfin_api_key": "Jellyfin API-nyckel",
+    "jellyfin_api_key_help": "Ange Jellyfin API-nyckel",
+    "test_endpoint": "Testa endpoint",
+    "test_endpoint_help": "Kontrollera Jellyfin-endpoint",
+    "jellyfin_server_id": "Jellyfin server-ID",
+    "jellyfin_server_id_help": "Ange server-ID för Jellyfin",
+    "save_button": "Spara inställningar"
+  },
+  "ui": {
+    "hide_header": "Dölj rubrik",
+    "show_header": "Visa rubrik"
+  },
+  "footer": {
+    "report_bug": "Rapportera fel",
+    "logs": "Loggar",
+    "made_by": "Skapad av",
+    "buy_coffee": "Bjud på en kaffe"
+  },
+  "logs": {
+    "title": "Loggar",
+    "back_to_config": "Tillbaka till inställningar",
+    "all_logs": "Alla loggar",
+    "errors": "Fel",
+    "refresh": "Uppdatera",
+    "loading": "Laddar..."
+  },
+  "bot": {
+    "start": "Starta",
+    "stop": "Stoppa",
+    "restart": "Starta om",
+    "status_online": "Online",
+    "status_offline": "Offline",
+    "status_starting": "Startar...",
+    "status_stopping": "Stoppar...",
+    "bot_started": "Bot startad",
+    "bot_stopped": "Bot stoppad",
+    "bot_restarted": "Bot omstartad",
+    "bot_error": "Botfel",
+    "invalid_token": "Ogiltig token",
+    "invalid_guild": "Ogiltig server",
+    "missing_permissions": "Saknar behörigheter",
+    "status": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "actions": {
+      "start": "Starta",
+      "stop": "Stoppa",
+      "restart": "Starta om"
+    },
+    "messages": {
+      "started": "Startad",
+      "stopped": "Stoppad",
+      "restarted": "Omstartad"
+    },
+    "commands": {
+      "search": {
+        "description": "Sök efter innehåll",
+        "response_found": "Innehåll hittat",
+        "response_none": "Inget innehåll hittades",
+        "request_sent": "Förfrågan skickad",
+        "already_available": "Redan tillgängligt",
+        "error": "Fel vid sökning"
+      },
+      "request": {
+        "description": "Begär nytt innehåll"
+      },
+      "trending": {
+        "description": "Visa trendande innehåll"
+      }
+    },
+    "notifications": {
+      "new_content": "Nytt innehåll tillgängligt",
+      "movie_added": "Film tillagd",
+      "series_added": "Serie tillagd",
+      "episode_added": "Avsnitt tillagt",
+      "season_added": "Säsong tillagd"
+    }
+  },
+  "errors": {
+    "loading_servers": "Fel vid laddning av servrar",
+    "loading_servers_check_token": "Fel vid laddning av servrar. Kontrollera token.",
+    "loading_channels": "Fel vid laddning av kanaler",
+    "loading_members": "Fel vid laddning av medlemmar",
+    "loading_members_bot_running": "Fel vid laddning av medlemmar. Körs boten?",
+    "loading_logs": "Fel vid laddning av loggar",
+    "bot_must_be_running": "Boten måste köras för att ladda roller",
+    "no_roles_available": "Inga roller tillgängliga"
+  },
+  "modals": {
+    "start_bot_yes": "Ja, starta bot",
+    "start_bot_no": "Nej, spara bara"
+  },
+  "about": {
+    "title": "Om Anchorr",
+    "description": "Anchorr är en självhostad, lättviktig brygga som kopplar din Jellyfin-mediaserver med Discord. Den meddelar dig på en dedikerad kanal när nya media läggs till i ditt bibliotek, och med Jellyseerr-integration kan du söka efter och begära filmer och serier direkt från Discord.",
+    "features_title": "Funktioner",
+    "feature_search": "/search <titel> Sök efter en film eller serie med automatiska förslag. En embed med detaljerad information visas, från vilken du kan begära media. För TV-serier har du möjlighet att välja önskade säsonger för begäran.",
+    "feature_request": "/request <titel> Skicka omedelbart en begäran om din valda film eller serie direkt till Jellyseerr. För TV-serier begär detta automatiskt alla säsonger.",
+    "feature_notifications": "Ta emot vackert formaterade notifieringar på din valda Discord-kanal när nya media läggs till i ditt Jellyfin-bibliotek.",
+    "feature_databases": "Med hjälp av TMDB- och OMDb-databaserna får Discord-meddelanden ett vackert och välstrukturerat utseende med viktig information om begärt eller tillagt mediainnehåll.",
+    "feature_permissions": "Kontrollera behörigheter med rollbaserad åtkomst (tillåt-/blockeringslista), dirigera notifieringar till olika kanaler per Jellyfin-bibliotek och länka användare till Jellyseerr-konton för korrekt spårning av begäranden.",
+    "feature_direct_messages": "Få direktmeddelanden på Discord när begärt innehåll blir tillgängligt i ditt bibliotek. Missa aldrig när dina begäranden är klara!",
+    "support_title": "Stöd projektet",
+    "support_description": "Om du tycker att Anchorr är användbart, överväg att stödja dess utveckling. Varje kaffe hjälper till att driva sena nätters kodningssessioner!",
+    "contribute_title": "Bidra",
+    "contribute_description": "Anchorr är öppen källkod! Om du är utvecklare är dina bidrag välkomna. Kolla in projektet på GitHub för att komma igång.",
+    "buy_coffee": "Bjud mig på ett kaffe",
+    "view_github": "Visa på GitHub"
+  },
+  "jellyfin_webhook": {
+    "note": "Om du kör Anchorr i Docker kan du behöva ersätta localhost med din servers IP-adress.",
+    "plugin_install": "Om du inte har pluginet installerat, gå till Plugins-sidan i din Jellyfin Dashboard, sök efter Webhook, installera det och starta om servern.",
+    "plugin_setup": "Efter omstarten, gå till dina Webhook-plugininställningar och Lägg till Discord-destination.",
+    "step_server_url": "Fyll i Server-URL med din Jellyfin-servers bas-URL.",
+    "step_webhook_url": "Infoga den tidigare angivna URL:en i Webhook-URL-fältet.",
+    "step_status": "Status måste vara Aktiverad.",
+    "step_notification_type": "För Notifieringstyp aktivera Objekt tillagt.",
+    "step_item_type": "För Objekttyp välj önskat innehåll du vill få notifieringar för.",
+    "step_properties": "Aktivera Skicka alla egenskaper.",
+    "step_save": "Spara."
+  }
+}

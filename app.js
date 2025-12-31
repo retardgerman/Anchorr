@@ -1,11 +1,16 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
-import { handleJellyfinWebhook } from "./jellyfinWebhook.js";
+import { handleJellyfinWebhook, libraryCache } from "./jellyfinWebhook.js";
 import { configTemplate } from "./lib/config.js";
 import axios from "axios";
+
+// ESM __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import {
   Client,
@@ -149,44 +154,43 @@ function loadConfig() {
 
 /**
  * Verify volume persistence configuration for Docker deployments
- * Detects if /config is mounted as a proper volume and warns if misconfigured
+ * Detects if config directory is mounted as a proper volume and warns if misconfigured
  */
 function verifyVolumeConfiguration() {
-  // Check if running in Docker (Docker always has /config directory created)
-  const isDocker = fs.existsSync("/config");
+  const configDir = path.dirname(CONFIG_PATH);
 
-  if (!isDocker) {
-    logger.debug(
-      "Running in local mode (not Docker) - config will be stored in ./config/"
-    );
-    return;
+  // Ensure config directory exists
+  if (!fs.existsSync(configDir)) {
+    try {
+      fs.mkdirSync(configDir, { recursive: true, mode: 0o777 });
+      logger.info(`✅ Created config directory at ${configDir}`);
+    } catch (error) {
+      logger.error(
+        `❌ Failed to create config directory at ${configDir}:`,
+        error
+      );
+      return;
+    }
   }
 
-  // In Docker - verify /config is writable
+  // Verify config directory is writable
   try {
-    const testFile = path.join("/config", ".volume-test");
+    const testFile = path.join(configDir, ".volume-test");
     fs.writeFileSync(testFile, "test", { mode: 0o666 });
     fs.unlinkSync(testFile);
-    logger.info("✅ Volume /config is properly configured and writable");
+    logger.info(
+      `✅ Config directory ${configDir} is properly configured and writable`
+    );
   } catch (error) {
     if (error.code === "EACCES") {
       logger.error(
-        "❌ CRITICAL: /config directory exists but is NOT writable!"
+        `❌ CRITICAL: Cannot write to ${configDir} - check Docker volume permissions`
       );
-      logger.error(
-        "   Ensure container volume mapping is correctly configured:"
-      );
-      logger.error("   - Container Path: /config");
-      logger.error("   - Host Path: [your-host-directory]");
-      logger.error("   - Access Mode: Read-Write (RW)");
-      logger.error("   Restart the container after fixing the volume mapping");
-    } else if (error.code === "EROFS") {
-      logger.error("❌ CRITICAL: /config is on a read-only file system!");
-      logger.error(
-        "   Check your Docker volume configuration - /config should be writable"
-      );
+      logger.error(`   On Unraid: Ensure host path is mapped to /config`);
+      logger.error(`   On Docker: Verify volume mount in docker-compose.yml`);
+      logger.error(`   Current config path: ${CONFIG_PATH}`);
     } else {
-      logger.warn("⚠️  Could not verify /config writability:", error.message);
+      logger.error(`❌ Error verifying volume configuration:`, error);
     }
   }
 }
@@ -291,6 +295,96 @@ async function startBot() {
       }
     } catch (e) {}
     return null;
+  }
+
+  function parseQualityAndServerOptions(options, mediaType) {
+    let profileId = null;
+    let serverId = null;
+
+    // Parse quality option (format: profileId|serverId|type)
+    if (options.quality) {
+      const [qProfileId, qServerId, qType] = options.quality.split("|");
+      // Only use if matching media type (radarr for movies, sonarr for TV)
+      if ((mediaType === "movie" && qType === "radarr") || (mediaType === "tv" && qType === "sonarr")) {
+        const parsedProfileId = parseInt(qProfileId, 10);
+        const parsedServerId = parseInt(qServerId, 10);
+
+        if (!isNaN(parsedProfileId) && !isNaN(parsedServerId)) {
+          profileId = parsedProfileId;
+          serverId = parsedServerId;
+          logger.debug(`Using quality profile ID: ${profileId} from server ID: ${serverId}`);
+        } else {
+          logger.warn(`Invalid quality option format - non-numeric values: profileId=${qProfileId}, serverId=${qServerId}`);
+        }
+      } else {
+        logger.debug(`Ignoring quality option - type mismatch (${qType} vs ${mediaType})`);
+      }
+    }
+
+    // Parse server option (format: serverId|type) - only if not already set from quality
+    if (options.server && serverId === null) {
+      const [sServerId, sType] = options.server.split("|");
+      // Only use if matching media type
+      if ((mediaType === "movie" && sType === "radarr") || (mediaType === "tv" && sType === "sonarr")) {
+        const parsedServerId = parseInt(sServerId, 10);
+
+        if (!isNaN(parsedServerId)) {
+          serverId = parsedServerId;
+          logger.debug(`Using server ID: ${serverId} from server option`);
+        } else {
+          logger.warn(`Invalid server option format - non-numeric serverId: ${sServerId}`);
+        }
+      } else {
+        logger.debug(`Ignoring server option - type mismatch (${sType} vs ${mediaType})`);
+      }
+    }
+
+    // Apply defaults from config if not specified
+    if (profileId === null && serverId === null) {
+      // Check for default quality profile
+      const defaultQualityConfig = mediaType === "movie"
+        ? process.env.DEFAULT_QUALITY_PROFILE_MOVIE
+        : process.env.DEFAULT_QUALITY_PROFILE_TV;
+
+      if (defaultQualityConfig) {
+        const [dProfileId, dServerId] = defaultQualityConfig.split("|");
+        if (dProfileId && dServerId) {
+          const parsedProfileId = parseInt(dProfileId, 10);
+          const parsedServerId = parseInt(dServerId, 10);
+
+          if (!isNaN(parsedProfileId) && !isNaN(parsedServerId)) {
+            profileId = parsedProfileId;
+            serverId = parsedServerId;
+            logger.debug(`Using default quality profile ID: ${profileId} from config`);
+          } else {
+            logger.warn(`Invalid default quality config format - non-numeric values: profileId=${dProfileId}, serverId=${dServerId}`);
+          }
+        }
+      }
+    }
+
+    if (serverId === null) {
+      // Default to configured default server if not set
+      const defaultServerConfig = mediaType === "movie"
+        ? process.env.DEFAULT_SERVER_MOVIE
+        : process.env.DEFAULT_SERVER_TV;
+
+      if (defaultServerConfig) {
+        const [dServerId] = defaultServerConfig.split("|");
+        if (dServerId) {
+          const parsedServerId = parseInt(dServerId, 10);
+
+          if (!isNaN(parsedServerId)) {
+            serverId = parsedServerId;
+            logger.debug(`Using default server ID: ${serverId} from config`);
+          } else {
+            logger.warn(`Invalid default server config format - non-numeric serverId: ${dServerId}`);
+          }
+        }
+      }
+    }
+
+    return { profileId, serverId };
   }
 
   // ----------------- EMBED BUILDER -----------------
@@ -438,7 +532,9 @@ async function startBot() {
     if (requested) {
       // Show success state with full info
       let successLabel = "Requested";
-      if (requestedSeasons.length > 0) {
+
+      // Only show seasons info for TV shows, not for movies
+      if (mediaType === "tv" && requestedSeasons.length > 0) {
         if (requestedSeasons.includes("all")) {
           successLabel = "Requested all seasons";
         } else if (requestedSeasons.length === 1) {
@@ -461,6 +557,8 @@ async function startBot() {
           requestedTags.length > 1 ? "s" : ""
         }`;
       }
+
+      // Always add "stay tuned!" for all requests
       successLabel += ", stay tuned!";
 
       buttons.push(
@@ -564,7 +662,7 @@ async function startBot() {
   }
 
   // ----------------- COMMON SEARCH LOGIC -----------------
-  async function handleSearchOrRequest(interaction, rawInput, mode, tags = []) {
+  async function handleSearchOrRequest(interaction, rawInput, mode, tags = [], options = {}) {
     // IMPORTANT: Defer reply FIRST to prevent timeout
     const isPrivateMode = process.env.PRIVATE_MESSAGE_MODE === "true";
 
@@ -680,11 +778,16 @@ async function startBot() {
           }
         }
 
+        // Parse quality and server
+        const { profileId, serverId } = parseQualityAndServerOptions(options, mediaType);
+
         await jellyseerrApi.sendRequest({
           tmdbId,
           mediaType,
           seasons: ["all"],
           tags: tagIds,
+          profileId,
+          serverId,
           jellyseerrUrl: JELLYSEERR_URL,
           apiKey: JELLYSEERR_API_KEY,
           discordUserId: interaction.user.id,
@@ -822,7 +925,7 @@ async function startBot() {
   );
 
   try {
-    await registerCommands(rest, BOT_ID, GUILD_ID || null, logger);
+    await registerCommands(rest, BOT_ID, GUILD_ID, logger);
   } catch (err) {
     logger.error(
       `[REGISTER COMMANDS] Failed to register Discord commands:`,
@@ -918,7 +1021,232 @@ async function startBot() {
           }
         }
 
-        // Handle Title Autocomplete (existing logic)
+        // Handle Quality Profile Autocomplete
+        if (focusedOption.name === "quality") {
+          try {
+            // Determine media type from title
+            const titleOption = interaction.options.getString("title");
+            let mediaType = null;
+            
+            if (titleOption && titleOption.includes("|")) {
+              const parts = titleOption.split("|");
+              mediaType = parts[1]; // "movie" or "tv"
+            }
+
+            // Get selected server to filter by specific server
+            const serverOption = interaction.options.getString("server");
+            let selectedServerId = null;
+
+            if (serverOption && serverOption.includes("|")) {
+              const parts = serverOption.split("|");
+              const parsedServerId = parseInt(parts[0], 10); // serverId
+
+              if (!isNaN(parsedServerId)) {
+                selectedServerId = parsedServerId;
+              } else {
+                logger.warn(`Invalid server option in autocomplete - non-numeric serverId: ${parts[0]}`);
+              }
+            }
+
+            const allProfiles = await jellyseerrApi.fetchQualityProfiles(
+              JELLYSEERR_URL,
+              JELLYSEERR_API_KEY
+            );
+
+            // Filter profiles based on user input, media type, AND selected server
+            const filteredProfiles = allProfiles.filter((profile) => {
+              const name = profile.name || "";
+              const matchesSearch = name.toLowerCase().includes(focusedValue.toLowerCase());
+              
+              // Filter by media type if title is selected
+              let matchesType = true;
+              if (mediaType) {
+                matchesType = 
+                  (mediaType === "movie" && profile.type === "radarr") ||
+                  (mediaType === "tv" && profile.type === "sonarr");
+              }
+              
+              // Filter by server if server is selected
+              let matchesServer = true;
+              if (selectedServerId !== null) {
+                matchesServer = profile.serverId === selectedServerId;
+              }
+              
+              return matchesSearch && matchesType && matchesServer;
+            });
+
+            // Deduplicate by name + server
+            const uniqueProfiles = [];
+            const seenNames = new Set();
+
+            for (const profile of filteredProfiles) {
+              const displayName = `${profile.name} (${profile.serverName})`;
+              const key = `${profile.id}-${profile.serverId}`;
+              if (!seenNames.has(key)) {
+                seenNames.add(key);
+                uniqueProfiles.push({
+                  name: displayName.length > 100 ? displayName.substring(0, 97) + "..." : displayName,
+                  value: `${profile.id}|${profile.serverId}|${profile.type}`, // profileId|serverId|type
+                });
+              }
+            }
+
+            // Limit to 25
+            return await interaction.respond(uniqueProfiles.slice(0, 25));
+          } catch (e) {
+            logger.error("Quality profile autocomplete error:", e);
+            return await interaction.respond([]);
+          }
+        }
+
+        // Server Autocomplete
+        if (focusedOption.name === "server") {
+          try {
+            // Determine media type from title
+            const titleOption = interaction.options.getString("title");
+            let mediaType = null;
+            
+            if (titleOption && titleOption.includes("|")) {
+              const parts = titleOption.split("|");
+              mediaType = parts[1]; // "movie" or "tv"
+            }
+
+            const allServers = await jellyseerrApi.fetchServers(
+              JELLYSEERR_URL,
+              JELLYSEERR_API_KEY
+            );
+
+            // Filter servers based on input AND media type
+            const filteredServers = allServers.filter((server) => {
+              const name = server.name || "";
+              const matchesSearch = name.toLowerCase().includes(focusedValue.toLowerCase());
+              
+              // If media type known, filter
+              if (mediaType) {
+                const matchesType = 
+                  (mediaType === "movie" && server.type === "radarr") ||
+                  (mediaType === "tv" && server.type === "sonarr");
+                return matchesSearch && matchesType;
+              }
+              
+              return matchesSearch;
+            });
+
+            // Response with server type
+            const serverChoices = filteredServers.map((server) => {
+              const typeEmoji = server.type === "radarr" ? "🎬" : "📺";
+              const displayName = `${typeEmoji} ${server.name}${server.isDefault ? " (default)" : ""}`;
+              return {
+                name: displayName.length > 100 ? displayName.substring(0, 97) + "..." : displayName,
+                value: `${server.id}|${server.type}`, // serverId|type
+              };
+            });
+
+            // Limit to 25
+            return await interaction.respond(serverChoices.slice(0, 25));
+          } catch (e) {
+            logger.error("Server autocomplete error:", e);
+            return await interaction.respond([]);
+          }
+        }
+
+        // Handle Title Autocomplete
+        // For trending command, show trending content instead of search results
+        if (interaction.commandName === "trending") {
+          try {
+            const trendingResults = await tmdbApi.tmdbGetTrending(TMDB_API_KEY);
+            const filtered = trendingResults
+              .filter((r) => r.media_type === "movie" || r.media_type === "tv")
+              .filter((r) => {
+                const title = r.title || r.name || "";
+                return title.toLowerCase().includes(focusedValue.toLowerCase());
+              })
+              .slice(0, 25);
+
+            const trendingChoices = await Promise.all(
+              filtered.map(async (item) => {
+                try {
+                  const details = await tmdbApi.tmdbGetDetails(
+                    item.id,
+                    item.media_type,
+                    TMDB_API_KEY
+                  );
+
+                  const emoji = item.media_type === "movie" ? "🎬" : "📺";
+                  const date = item.release_date || item.first_air_date || "";
+                  const year = date ? ` (${date.slice(0, 4)})` : "";
+
+                  let extraInfo = "";
+                  if (item.media_type === "movie") {
+                    const director = details.credits?.crew?.find(
+                      (c) => c.job === "Director"
+                    );
+                    const directorName = director ? director.name : null;
+                    const runtime = details.runtime;
+                    const hours = runtime ? Math.floor(runtime / 60) : 0;
+                    const minutes = runtime ? runtime % 60 : 0;
+                    const runtimeStr = runtime ? `${hours}h ${minutes}m` : null;
+
+                    if (directorName && runtimeStr) {
+                      extraInfo = ` — directed by ${directorName} — runtime: ${runtimeStr}`;
+                    } else if (directorName) {
+                      extraInfo = ` — directed by ${directorName}`;
+                    } else if (runtimeStr) {
+                      extraInfo = ` — runtime: ${runtimeStr}`;
+                    }
+                  } else {
+                    const creator = details.created_by?.[0]?.name;
+                    const seasonCount = details.number_of_seasons;
+                    const seasonStr = seasonCount
+                      ? `${seasonCount} season${seasonCount > 1 ? "s" : ""}`
+                      : null;
+
+                    if (creator && seasonStr) {
+                      extraInfo = ` — created by ${creator} — ${seasonStr}`;
+                    } else if (creator) {
+                      extraInfo = ` — created by ${creator}`;
+                    } else if (seasonStr) {
+                      extraInfo = ` — ${seasonStr}`;
+                    }
+                  }
+
+                  let fullName = `${emoji} ${
+                    item.title || item.name
+                  }${year}${extraInfo}`;
+
+                  if (fullName.length > 98) {
+                    fullName = fullName.substring(0, 95) + "...";
+                  }
+
+                  return {
+                    name: fullName,
+                    value: `${item.id}|${item.media_type}`,
+                  };
+                } catch (err) {
+                  const emoji = item.media_type === "movie" ? "🎬" : "📺";
+                  const date = item.release_date || item.first_air_date || "";
+                  const year = date ? ` (${date.slice(0, 4)})` : "";
+                  let basicName = `${emoji} ${item.title || item.name}${year}`;
+                  if (basicName.length > 98) {
+                    basicName = basicName.substring(0, 95) + "...";
+                  }
+                  return {
+                    name: basicName,
+                    value: `${item.id}|${item.media_type}`,
+                  };
+                }
+              })
+            );
+
+            await interaction.respond(trendingChoices);
+            return;
+          } catch (e) {
+            logger.error("Trending autocomplete error:", e);
+            return interaction.respond([]);
+          }
+        }
+
+        // Handle regular search autocomplete (existing logic)
         if (!focusedValue) return interaction.respond([]);
 
         try {
@@ -940,7 +1268,7 @@ async function startBot() {
                 const emoji = item.media_type === "movie" ? "🎬" : "📺";
                 const date = item.release_date || item.first_air_date || "";
                 const year = date ? ` (${date.slice(0, 4)})` : "";
-                
+
                 let extraInfo = "";
                 if (item.media_type === "movie") {
                   // Get director from credits
@@ -948,15 +1276,13 @@ async function startBot() {
                     (c) => c.job === "Director"
                   );
                   const directorName = director ? director.name : null;
-                  
+
                   // Get runtime
                   const runtime = details.runtime;
                   const hours = runtime ? Math.floor(runtime / 60) : 0;
                   const minutes = runtime ? runtime % 60 : 0;
-                  const runtimeStr = runtime
-                    ? `${hours}h ${minutes}m`
-                    : null;
-                  
+                  const runtimeStr = runtime ? `${hours}h ${minutes}m` : null;
+
                   if (directorName && runtimeStr) {
                     extraInfo = ` — directed by ${directorName} — runtime: ${runtimeStr}`;
                   } else if (directorName) {
@@ -971,7 +1297,7 @@ async function startBot() {
                   const seasonStr = seasonCount
                     ? `${seasonCount} season${seasonCount > 1 ? "s" : ""}`
                     : null;
-                  
+
                   if (creator && seasonStr) {
                     extraInfo = ` — created by ${creator} — ${seasonStr}`;
                   } else if (creator) {
@@ -981,8 +1307,10 @@ async function startBot() {
                   }
                 }
 
-                let fullName = `${emoji} ${item.title || item.name}${year}${extraInfo}`;
-                
+                let fullName = `${emoji} ${
+                  item.title || item.name
+                }${year}${extraInfo}`;
+
                 // Truncate if too long (Discord limit is 100 chars)
                 if (fullName.length > 98) {
                   fullName = fullName.substring(0, 95) + "...";
@@ -1035,13 +1363,19 @@ async function startBot() {
           return handleSearchOrRequest(interaction, raw, "search");
         if (interaction.commandName === "request") {
           const tag = interaction.options.getString("tag");
-          // Pass tag as an array if present
+          const quality = interaction.options.getString("quality");
+          const server = interaction.options.getString("server");
+          // Pass tag as an array if present, and quality/server options
           return handleSearchOrRequest(
             interaction,
             raw,
             "request",
-            tag ? [tag] : []
+            tag ? [tag] : [],
+            { quality, server }
           );
+        }
+        if (interaction.commandName === "trending") {
+          return handleSearchOrRequest(interaction, raw, "search");
         }
       }
 
@@ -1071,14 +1405,8 @@ async function startBot() {
           );
 
           // Parse seasons and tags from customId
-          const selectedSeasons = seasonsParam
-            ? seasonsParam.split(",")
-            : mediaType === "tv"
-            ? []
-            : ["all"];
-          const selectedTagNames = tagsParam ? tagsParam.split(",") : [];
-
-          // Convert tag names to IDs for API call
+          const selectedSeasons = seasonsParam ? seasonsParam.split(",") : [];
+          const selectedTagNames = tagsParam ? tagsParam.split(",") : []; // Convert tag names to IDs for API call
           let selectedTagIds = [];
           if (selectedTagNames.length > 0) {
             try {
@@ -1108,8 +1436,13 @@ async function startBot() {
           }
 
           // Check if media already exists in Jellyseerr
+          // For movies: use ["all"], for TV: use selected seasons or ["all"]
           const checkSeasons =
-            selectedSeasons.length > 0 ? selectedSeasons : ["all"];
+            mediaType === "movie"
+              ? ["all"]
+              : selectedSeasons.length > 0
+              ? selectedSeasons
+              : ["all"];
           const status = await jellyseerrApi.checkMediaStatus(
             tmdbId,
             mediaType,
@@ -1128,11 +1461,24 @@ async function startBot() {
           }
 
           // Send the request with selected seasons and tags
+          // For movies: don't send seasons, for TV: send selected or default to "all"
+          const seasonsToRequest =
+            mediaType === "movie"
+              ? undefined
+              : selectedSeasons.length > 0
+              ? selectedSeasons
+              : ["all"];
+
+          // Apply defaults from config
+          const { profileId, serverId } = parseQualityAndServerOptions({}, mediaType);
+
           await jellyseerrApi.sendRequest({
             tmdbId,
             mediaType,
-            seasons: selectedSeasons.length > 0 ? selectedSeasons : ["all"],
+            seasons: seasonsToRequest,
             tags: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+            profileId,
+            serverId,
             jellyseerrUrl: JELLYSEERR_URL,
             apiKey: JELLYSEERR_API_KEY,
             discordUserId: interaction.user.id,
@@ -1478,30 +1824,6 @@ function configureWebServer() {
   app.post("/api/auth/logout", logout);
   app.get("/api/auth/check", checkAuth);
 
-  // --- JELLYFIN WEBHOOK ENDPOINT (no rate limiting for webhooks) ---
-  app.post("/jellyfin/webhook", express.json(), async (req, res) => {
-    try {
-      logger.info("📥 Received Jellyfin webhook");
-      logger.debug("Webhook payload:", JSON.stringify(req.body, null, 2));
-
-      // Acknowledge receipt immediately
-      res.status(200).json({ success: true, message: "Webhook received" });
-
-      // Process webhook asynchronously
-      if (discordClient && isBotRunning) {
-        // Don't pass res since we already responded
-        await handleJellyfinWebhook(req, null, discordClient, pendingRequests);
-      } else {
-        logger.warn(
-          "⚠️ Jellyfin webhook received but Discord bot is not running"
-        );
-      }
-    } catch (error) {
-      logger.error("❌ Error processing Jellyfin webhook:", error);
-      // Don't send error response since we already sent 200
-    }
-  });
-
   // Apply rate limiting to all API endpoints (except auth and webhooks)
   app.use("/api/", apiLimiter);
 
@@ -1612,36 +1934,85 @@ function configureWebServer() {
         botMember.permissions.toArray()
       );
 
-      // Try to fetch members - this may fail if GUILD_MEMBERS intent is not enabled
+      // Fetch members with proper error handling and intent detection
+      let fetchSuccess = false;
+      let fetchError = null;
+
       try {
-        logger.debug("[MEMBERS API] Attempting to fetch members...");
-        await guild.members.fetch();
-        logger.debug("[MEMBERS API] Members fetched successfully");
-      } catch (fetchErr) {
-        logger.error(
-          "[MEMBERS API] Failed to fetch members:",
-          fetchErr.message
-        );
         logger.debug(
-          "[MEMBERS API] This is normal if Server Members Intent is not enabled in Discord Developer Portal"
+          "[MEMBERS API] Attempting to fetch members (real-time with force refresh)..."
         );
-        logger.debug("[MEMBERS API] Using cached members instead");
+        // Force refresh members from Discord - ignores cache and fetches latest from server
+        await guild.members.fetch({ force: true, limit: 1000 });
+        logger.info(
+          "[MEMBERS API] ✅ Members fetched successfully (real-time)"
+        );
+        fetchSuccess = true;
+      } catch (fetchErr) {
+        fetchError = fetchErr.message;
+        const errorCode = fetchErr.code;
+        const errorStatus = fetchErr.status;
+
+        logger.error(
+          `[MEMBERS API] Fetch error - Code: ${errorCode}, Status: ${errorStatus}, Message: ${fetchErr.message}`
+        );
+
+        // Detect if it's a privileged intent issue
+        if (
+          fetchErr.message.includes("Privileged intent") ||
+          fetchErr.code === 50001 ||
+          fetchErr.status === 403 ||
+          fetchErr.message.includes("requires the SERVER_MEMBERS intent") ||
+          fetchErr.message.includes("requires the GUILD_MEMBERS intent")
+        ) {
+          logger.warn(
+            "[MEMBERS API] ⚠️ GUILD_MEMBERS privileged intent not enabled in Discord Developer Portal!"
+          );
+          logger.warn(
+            "[MEMBERS API] To fix: Go to https://discord.com/developers/applications"
+          );
+          logger.warn("[MEMBERS API] 1. Select your bot application");
+          logger.warn("[MEMBERS API] 2. Go to 'Bot' tab");
+          logger.warn(
+            "[MEMBERS API] 3. Enable 'Server Members Intent' under 'Privileged Gateway Intents'"
+          );
+          logger.warn("[MEMBERS API] 4. Save changes and restart bot");
+          logger.warn(
+            "[MEMBERS API] Falling back to cached members (may be incomplete)"
+          );
+        } else {
+          logger.error(
+            "[MEMBERS API] Unknown error fetching members. Falling back to cache."
+          );
+          logger.debug("[MEMBERS API] Full error:", fetchErr);
+        }
       }
 
-      // Get members from cache (will include bot and users that have been active)
+      // Get members from cache (will be fresh if fetch succeeded, or cached if it failed)
       const members = guild.members.cache
         .filter((member) => !member.user.bot) // Exclude bots
         .map((member) => ({
           id: member.id,
           username: member.user.username,
-          displayName: member.displayName,
+          displayName: member.displayName || member.user.username,
           avatar: member.user.displayAvatarURL({ size: 64 }),
           discriminator: member.user.discriminator,
         }))
-        .slice(0, 100); // Limit to first 100 members for performance
+        .sort((a, b) => a.username.localeCompare(b.username)) // Sort alphabetically
+        .slice(0, 1000); // Increased limit to 1000 members
 
-      logger.debug(`[MEMBERS API] Returning ${members.length} members`);
-      res.json({ success: true, members });
+      logger.info(
+        `[MEMBERS API] Returning ${members.length} members (real-time: ${fetchSuccess})`
+      );
+
+      res.json({
+        success: true,
+        members,
+        fetchedRealtime: fetchSuccess,
+        warning: fetchSuccess
+          ? null
+          : "Members from cache - enable GUILD_MEMBERS intent for real-time data",
+      });
     } catch (err) {
       logger.error("[MEMBERS API] Error:", err);
       res.json({ success: false, message: err.message });
@@ -1719,10 +2090,26 @@ function configureWebServer() {
         `${baseUrl}/user`
       );
 
-      const response = await axios.get(`${baseUrl}/user`, {
-        headers: { "X-Api-Key": apiKey },
-        timeout: TIMEOUTS.JELLYSEERR_API,
-      });
+      let response;
+      try {
+        logger.info(
+          "[JELLYSEERR USERS API] Fetching users from Jellyseerr (real-time)..."
+        );
+        response = await axios.get(`${baseUrl}/user?take=` + Number.MAX_SAFE_INTEGER, {
+          headers: { "X-Api-Key": apiKey },
+          timeout: TIMEOUTS.JELLYSEERR_API,
+        });
+
+        logger.info(
+          "[JELLYSEERR USERS API] ✅ Users fetched successfully (real-time)"
+        );
+      } catch (fetchErr) {
+        logger.error(
+          "[JELLYSEERR USERS API] Failed to fetch users:",
+          fetchErr.message
+        );
+        throw fetchErr;
+      }
 
       logger.debug(
         "[JELLYSEERR USERS API] Response received, status:",
@@ -1752,22 +2139,29 @@ function configureWebServer() {
       // Jellyseerr API returns { pageInfo, results: [] }
       const userData = response.data.results || [];
 
-      const users = userData.map((user) => {
-        let avatar = user.avatar || null;
-        // If avatar is relative, make it absolute
-        if (avatar && !avatar.startsWith("http")) {
-          avatar = `${jellyseerrUrl.replace(/\/api\/v1$/, "")}${avatar}`;
-        }
-        return {
-          id: user.id,
-          displayName: user.displayName || user.username || `User ${user.id}`,
-          email: user.email || "",
-          avatar: avatar,
-        };
-      });
+      const users = userData
+        .map((user) => {
+          let avatar = user.avatar || null;
+          // If avatar is relative, make it absolute
+          if (avatar && !avatar.startsWith("http")) {
+            avatar = `${jellyseerrUrl.replace(/\/api\/v1$/, "")}${avatar}`;
+          }
+          return {
+            id: user.id,
+            displayName: user.displayName || user.username || `User ${user.id}`,
+            username: user.username || "",
+            email: user.email || "",
+            avatar: avatar,
+          };
+        })
+        .sort((a, b) =>
+          (a.displayName || "").localeCompare(b.displayName || "")
+        ); // Sort alphabetically
 
-      logger.debug(`[JELLYSEERR USERS API] Returning ${users.length} users`);
-      res.json({ success: true, users });
+      logger.info(
+        `[JELLYSEERR USERS API] ✅ Returning ${users.length} users (real-time)`
+      );
+      res.json({ success: true, users, fetchedRealtime: true });
     } catch (err) {
       logger.error("[JELLYSEERR USERS API] Error:", err.message);
       if (err.response) {
@@ -1805,12 +2199,10 @@ function configureWebServer() {
       } = req.body;
 
       if (!discordUserId || !jellyseerrUserId) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Discord user ID and Jellyseerr user ID are required.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Discord user ID and Jellyseerr user ID are required.",
+        });
       }
 
       try {
@@ -1828,12 +2220,10 @@ function configureWebServer() {
         res.json({ success: true, message: "Mapping saved successfully." });
       } catch (error) {
         logger.error("Error saving user mapping:", error);
-        res
-          .status(500)
-          .json({
-            success: false,
-            message: "Failed to save mapping - check server logs.",
-          });
+        res.status(500).json({
+          success: false,
+          message: "Failed to save mapping - check server logs.",
+        });
       }
     }
   );
@@ -1857,12 +2247,10 @@ function configureWebServer() {
         res.json({ success: true, message: "Mapping deleted successfully." });
       } catch (error) {
         logger.error("Error deleting user mapping:", error);
-        res
-          .status(500)
-          .json({
-            success: false,
-            message: "Failed to delete mapping - check server logs.",
-          });
+        res.status(500).json({
+          success: false,
+          message: "Failed to delete mapping - check server logs.",
+        });
       }
     }
   );
@@ -1892,6 +2280,14 @@ function configureWebServer() {
         type: item.CollectionType || "unknown",
       }));
 
+      // Update library cache with fresh data for webhook usage
+      if (response.data.Items && response.data.Items.length > 0) {
+        libraryCache.set(response.data.Items);
+        logger.info(
+          `[LIBRARY CACHE] Updated cache with ${response.data.Items.length} libraries`
+        );
+      }
+
       res.json({ success: true, libraries });
     } catch (err) {
       logger.error("[JELLYFIN LIBRARIES API] Error:", err);
@@ -1918,17 +2314,36 @@ function configureWebServer() {
     });
   });
 
-  app.use("/assets", express.static(path.join(process.cwd(), "assets")));
-  app.use(express.static(path.join(process.cwd(), "web")));
+  app.use("/assets", express.static(path.join(__dirname, "assets")));
+  app.use("/locales", express.static(path.join(__dirname, "locales")));
+  app.use(express.static(path.join(__dirname, "web")));
 
   app.get("/", (req, res) => {
-    res.sendFile(path.join(process.cwd(), "web", "index.html"));
+    res.sendFile(path.join(__dirname, "web", "index.html"));
   });
 
-  app.post("/jellyfin-webhook", (req, res) => {
-    if (!isBotRunning || !discordClient)
-      return res.status(503).send("Bot is not running.");
-    handleJellyfinWebhook(req, res, discordClient, pendingRequests);
+  // --- JELLYFIN WEBHOOK ENDPOINT (no rate limiting for webhooks) ---
+  app.post("/jellyfin-webhook", express.json(), async (req, res) => {
+    try {
+      logger.info("📥 Received Jellyfin webhook");
+      logger.debug("Webhook payload:", JSON.stringify(req.body, null, 2));
+
+      // Acknowledge receipt immediately
+      res.status(200).json({ success: true, message: "Webhook received" });
+
+      // Process webhook asynchronously
+      if (discordClient && isBotRunning) {
+        // Don't pass res since we already responded
+        await handleJellyfinWebhook(req, null, discordClient, pendingRequests);
+      } else {
+        logger.warn(
+          "⚠️ Jellyfin webhook received but Discord bot is not running"
+        );
+      }
+    } catch (error) {
+      logger.error("❌ Error processing Jellyfin webhook:", error);
+      // Don't send error response since we already sent 200
+    }
   });
 
   app.get("/api/config", authenticateToken, (req, res) => {
@@ -1938,6 +2353,47 @@ function configureWebServer() {
     } else {
       // If no config file, return the template from config/config.js
       res.json(configTemplate);
+    }
+  });
+
+  // Get available languages dynamically from locales directory
+  app.get("/api/languages", async (req, res) => {
+    try {
+      const localesDir = path.join(process.cwd(), "locales");
+      const files = fs.readdirSync(localesDir);
+      
+      const languages = [];
+      
+      for (const file of files) {
+        if (file.endsWith('.json') && file !== 'template.json') {
+          try {
+            const langPath = path.join(localesDir, file);
+            const langData = JSON.parse(fs.readFileSync(langPath, 'utf8'));
+            
+            if (langData._meta && langData._meta.language_code && langData._meta.language_name) {
+              languages.push({
+                code: langData._meta.language_code,
+                name: langData._meta.language_name
+              });
+            }
+          } catch (error) {
+            logger.warn(`Failed to parse language file ${file}: ${error.message}`);
+          }
+        }
+      }
+      
+      // Sort by language name
+      languages.sort((a, b) => a.name.localeCompare(b.name));
+      
+      res.json(languages);
+    } catch (error) {
+      logger.error(`Failed to load available languages: ${error.message}`);
+      // Return fallback languages
+      res.json([
+        { code: 'en', name: 'English' },
+        { code: 'de', name: 'Deutsch' },
+        { code: 'sv', name: 'Svenska' }
+      ]);
     }
   });
 
@@ -2003,6 +2459,10 @@ function configureWebServer() {
 
       loadConfig(); // Reload config into process.env
 
+      // Check if Discord credentials are complete and changed
+      const hasDiscordCreds = process.env.DISCORD_TOKEN && process.env.BOT_ID;
+      const discordCredsChanged = oldToken !== process.env.DISCORD_TOKEN;
+      
       // If bot is running and critical settings changed, restart the bot logic
       const jellyfinApiKeyChanged =
         oldJellyfinApiKey !== process.env.JELLYFIN_API_KEY;
@@ -2029,11 +2489,53 @@ function configureWebServer() {
             message: `Config saved, but bot failed to restart: ${error.message}`,
           });
         }
+      } else if (!isBotRunning && hasDiscordCreds && discordCredsChanged) {
+        // Check if user wants to auto-start the bot (default: true for backward compatibility)
+        const shouldStartBot = configData.startBot !== false; // Default to true if not specified
+        
+        if (shouldStartBot) {
+          // Auto-start bot when Discord credentials are first entered or changed
+          logger.info("Discord credentials configured. Starting bot automatically...");
+          try {
+            await startBot();
+            res.status(200).json({ 
+              message: "Configuration saved. Bot started successfully!" 
+            });
+          } catch (error) {
+            logger.error("Auto-start failed:", error.message);
+            res.status(200).json({
+              message: `Configuration saved, but bot failed to start: ${error.message}. Check credentials and try starting manually.`,
+            });
+          }
+        } else {
+          // User chose not to start the bot
+          res.status(200).json({ 
+            message: "Configuration saved successfully! You can start the bot manually when ready." 
+          });
+        }
       } else {
         res.status(200).json({ message: "Configuration saved successfully!" });
       }
     }
   );
+
+  // Check if saving config would trigger bot auto-start
+  app.post("/api/check-autostart", authenticateToken, async (req, res) => {
+    const configData = req.body;
+    const oldToken = process.env.DISCORD_TOKEN;
+    
+    // Check if Discord credentials are complete and changed
+    const hasDiscordCreds = configData.DISCORD_TOKEN && configData.BOT_ID;
+    const discordCredsChanged = oldToken !== configData.DISCORD_TOKEN;
+    const wouldAutoStart = !isBotRunning && hasDiscordCreds && discordCredsChanged;
+    
+    res.json({
+      wouldAutoStart,
+      hasDiscordCreds,
+      discordCredsChanged,
+      isBotRunning
+    });
+  });
 
   app.post("/api/test-jellyseerr", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
@@ -2069,6 +2571,58 @@ function configureWebServer() {
       res.status(500).json({
         success: false,
         message: "Connection failed. Check URL and API Key.",
+      });
+    }
+  });
+
+  // Fetch quality profiles
+  app.post("/api/jellyseerr/quality-profiles", authenticateToken, async (req, res) => {
+    const { url, apiKey } = req.body;
+    if (!url || !apiKey) {
+      return res
+        .status(400)
+        .json({ success: false, message: "URL and API Key are required." });
+    }
+
+    try {
+      let baseUrl = url.replace(/\/$/, "");
+      if (!baseUrl.endsWith("/api/v1")) {
+        baseUrl += "/api/v1";
+      }
+
+      const profiles = await jellyseerrApi.fetchQualityProfiles(baseUrl, apiKey);
+      res.json({ success: true, profiles });
+    } catch (error) {
+      logger.error("Failed to fetch quality profiles:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch quality profiles.",
+      });
+    }
+  });
+
+  // Fetch servers
+  app.post("/api/jellyseerr/servers", authenticateToken, async (req, res) => {
+    const { url, apiKey } = req.body;
+    if (!url || !apiKey) {
+      return res
+        .status(400)
+        .json({ success: false, message: "URL and API Key are required." });
+    }
+
+    try {
+      let baseUrl = url.replace(/\/$/, "");
+      if (!baseUrl.endsWith("/api/v1")) {
+        baseUrl += "/api/v1";
+      }
+
+      const servers = await jellyseerrApi.fetchServers(baseUrl, apiKey);
+      res.json({ success: true, servers });
+    } catch (error) {
+      logger.error("Failed to fetch servers:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch servers.",
       });
     }
   });
@@ -2134,6 +2688,244 @@ function configureWebServer() {
       res.status(500).json({
         success: false,
         message: "Failed to fetch libraries. Check Jellyfin configuration.",
+      });
+    }
+  });
+
+  // Test notification endpoint - sends sample notifications with random data
+  app.post("/api/test-notification", authenticateToken, async (req, res) => {
+    try {
+      const { type } = req.body;
+
+      if (!type || !["movie", "series", "season", "batch-seasons", "episodes", "batch-episodes"].includes(type)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid notification type. Must be: movie, series, season, batch-seasons, episodes, or batch-episodes.",
+        });
+      }
+
+      // Check if Discord bot is running and configured
+      if (!discordClient || !discordClient.isReady()) {
+        return res.status(400).json({
+          success: false,
+          message: "Discord bot is not running. Please start the bot first.",
+        });
+      }
+
+      const guildId = process.env.GUILD_ID;
+      const channelId = process.env.JELLYFIN_CHANNEL_ID;
+
+      if (!guildId || !channelId) {
+        return res.status(400).json({
+          success: false,
+          message: "Discord server and channel must be configured first.",
+        });
+      }
+
+      // Fetch real data from TMDB/OMDB for realistic test notifications
+      const { tmdbGetDetails, tmdbGetExternalImdb } = await import("./api/tmdb.js");
+      const { fetchOMDbData } = await import("./api/omdb.js");
+      
+      const TMDB_API_KEY = process.env.TMDB_API_KEY;
+      if (!TMDB_API_KEY) {
+        return res.status(400).json({
+          success: false,
+          message: "TMDB API key is required for test notifications. Configure it in Step 3.",
+        });
+      }
+
+      let notificationData;
+
+      // Build realistic notification data based on type
+      if (type === "movie") {
+        // Interstellar TMDB ID: 157336
+        const movieDetails = await tmdbGetDetails(157336, "movie", TMDB_API_KEY);
+        const imdbId = await tmdbGetExternalImdb(157336, "movie", TMDB_API_KEY);
+        
+        notificationData = {
+          ItemType: "Movie",
+          Name: movieDetails.title,
+          Year: movieDetails.release_date ? movieDetails.release_date.split("-")[0] : "",
+          Overview: movieDetails.overview,
+          Provider_tmdb: "157336",
+          Provider_imdb: imdbId,
+          ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+          ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+          ItemId: "test-movie-" + Date.now(),
+        };
+      } else if (type === "series") {
+        // Breaking Bad TMDB ID: 1396
+        const seriesDetails = await tmdbGetDetails(1396, "tv", TMDB_API_KEY);
+        const imdbId = await tmdbGetExternalImdb(1396, "tv", TMDB_API_KEY);
+        
+        notificationData = {
+          ItemType: "Series",
+          Name: seriesDetails.name,
+          Year: seriesDetails.first_air_date ? seriesDetails.first_air_date.split("-")[0] : "",
+          Overview: seriesDetails.overview,
+          Provider_tmdb: "1396",
+          Provider_imdb: imdbId,
+          ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+          ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+          ItemId: "test-series-" + Date.now(),
+        };
+      } else if (type === "season") {
+        // Breaking Bad Season 1
+        const seriesDetails = await tmdbGetDetails(1396, "tv", TMDB_API_KEY);
+        const imdbId = await tmdbGetExternalImdb(1396, "tv", TMDB_API_KEY);
+        
+        notificationData = {
+          ItemType: "Season",
+          SeriesName: seriesDetails.name,
+          SeriesId: "test-series-" + Date.now(),
+          Name: "Season 1",
+          SeasonNumber: 1,
+          Year: seriesDetails.first_air_date ? seriesDetails.first_air_date.split("-")[0] : "",
+          Overview: "High school chemistry teacher Walter White's life is suddenly transformed by a dire medical diagnosis. Street-savvy former student Jesse Pinkman \"teaches\" Walter a new trade.",
+          Provider_tmdb: "1396",
+          Provider_imdb: imdbId,
+          ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+          ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+          ItemId: "test-season-" + Date.now(),
+        };
+      } else if (type === "episodes") {
+        // Breaking Bad first episodes
+        const seriesDetails = await tmdbGetDetails(1396, "tv", TMDB_API_KEY);
+        const imdbId = await tmdbGetExternalImdb(1396, "tv", TMDB_API_KEY);
+        
+        notificationData = {
+          ItemType: "Episode",
+          SeriesName: seriesDetails.name,
+          SeriesId: "test-series-" + Date.now(),
+          Name: "Pilot, Cat's in the Bag...",
+          SeasonNumber: 1,
+          EpisodeNumber: 1,
+          Year: seriesDetails.first_air_date ? seriesDetails.first_air_date.split("-")[0] : "",
+          Overview: "When an unassuming high school chemistry teacher discovers he has a rare form of lung cancer, he decides to team up with a former student and create a top of the line crystal meth in a used RV, to provide for his family once he is gone.",
+          Provider_tmdb: "1396",
+          Provider_imdb: imdbId,
+          ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+          ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+          ItemId: "test-episode-" + Date.now(),
+        };
+      } else if (type === "batch-seasons") {
+        // The Mandalorian - Send 2 separate season notifications to test batching (TMDB ID: 82856)
+        const seriesDetails = await tmdbGetDetails(82856, "tv", TMDB_API_KEY);
+        const imdbId = await tmdbGetExternalImdb(82856, "tv", TMDB_API_KEY);
+        
+        const { handleJellyfinWebhook } = await import("./jellyfinWebhook.js");
+        const baseSeriesId = "batch-test-series-" + Date.now();
+        
+        // Send Season 1
+        const season1Data = {
+          ItemType: "Season",
+          SeriesName: seriesDetails.name,
+          SeriesId: baseSeriesId,
+          Name: "Season 1",
+          SeasonNumber: 1,
+          Year: seriesDetails.first_air_date ? seriesDetails.first_air_date.split("-")[0] : "",
+          Overview: "After the fall of the Galactic Empire, lawlessness has spread throughout the galaxy. A lone gunfighter makes his way through the outer reaches, earning his keep as a bounty hunter.",
+          Provider_tmdb: "82856",
+          Provider_imdb: imdbId,
+          ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+          ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+          ItemId: "batch-season-1-" + Date.now(),
+        };
+        
+        // Send Season 2
+        const season2Data = {
+          ItemType: "Season",
+          SeriesName: seriesDetails.name,
+          SeriesId: baseSeriesId,
+          Name: "Season 2",
+          SeasonNumber: 2,
+          Year: seriesDetails.first_air_date ? seriesDetails.first_air_date.split("-")[0] : "",
+          Overview: "The Mandalorian and the Child continue their journey, facing enemies and rallying allies as they make their way through a dangerous galaxy in the tumultuous era after the collapse of the Galactic Empire.",
+          Provider_tmdb: "82856",
+          Provider_imdb: imdbId,
+          ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+          ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+          ItemId: "batch-season-2-" + Date.now(),
+        };
+        
+        // Send both seasons (they should be batched together by debouncing logic)
+        const fakeReq1 = { body: season1Data };
+        const fakeReq2 = { body: season2Data };
+        
+        await handleJellyfinWebhook(fakeReq1, null, discordClient, pendingRequests);
+        await handleJellyfinWebhook(fakeReq2, null, discordClient, pendingRequests);
+        
+        return res.json({
+          success: true,
+          message: `Test batch-seasons notification sent! 2 seasons should be batched together. Check your Discord channel.`,
+        });
+      } else if (type === "batch-episodes") {
+        // Stranger Things - Send 6 separate episode notifications to test batching (TMDB ID: 66732)
+        const seriesDetails = await tmdbGetDetails(66732, "tv", TMDB_API_KEY);
+        const imdbId = await tmdbGetExternalImdb(66732, "tv", TMDB_API_KEY);
+        
+        const { handleJellyfinWebhook } = await import("./jellyfinWebhook.js");
+        const baseSeriesId = "batch-test-series-" + Date.now();
+        
+        const episodes = [
+          { num: "01", name: "Chapter One: The Hellfire Club", overview: "Spring break turns into a nightmare when a new evil emerges in Hawkins." },
+          { num: "02", name: "Chapter Two: Vecna's Curse", overview: "A plane brings Mike to California, and to his girlfriend, and to new, high school, problems." },
+          { num: "03", name: "Chapter Three: The Monster and the Superhero", overview: "Murray and Joyce fly to Alaska, and El faces serious consequences. Robin and Nancy dig for information." },
+          { num: "04", name: "Chapter Four: Dear Billy", overview: "Max is in grave danger, and running out of time. A patient at Pennhurst asylum has visitors. Elsewhere, in Russia, Hopper is hard at work." },
+          { num: "05", name: "Chapter Five: The Nina Project", overview: "Owens takes El to Nevada, where she's forced to confront her past, while the Hawkins kids comb a crumbling house for answers." },
+          { num: "06", name: "Chapter Six: The Dive", overview: "Behind the Iron Curtain, a risky rescue mission gets underway. The California crew seeks help from a hacker. Steve takes one for the team." },
+        ];
+        
+        // Send all 6 episodes (they should be batched together by debouncing logic)
+        for (const ep of episodes) {
+          const episodeData = {
+            ItemType: "Episode",
+            SeriesName: seriesDetails.name,
+            SeriesId: baseSeriesId,
+            Name: ep.name,
+            SeasonNumber: 4,
+            EpisodeNumber: parseInt(ep.num),
+            Year: seriesDetails.first_air_date ? seriesDetails.first_air_date.split("-")[0] : "",
+            Overview: ep.overview,
+            Provider_tmdb: "66732",
+            Provider_imdb: imdbId,
+            ServerUrl: process.env.JELLYFIN_BASE_URL || process.env.JELLYFIN_URL || "https://jellyfin.example.com",
+            ServerId: process.env.JELLYFIN_SERVER_ID || "test-server-id",
+            ItemId: "batch-episode-" + ep.num + "-" + Date.now(),
+          };
+          
+          const fakeReq = { body: episodeData };
+          await handleJellyfinWebhook(fakeReq, null, discordClient, pendingRequests);
+          // Small delay between episodes to simulate realistic webhook timing
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        return res.json({
+          success: true,
+          message: `Test batch-episodes notification sent! 6 episodes should be batched together. Check your Discord channel.`,
+        });
+      }
+
+      // Import webhook handler
+      const { handleJellyfinWebhook } = await import("./jellyfinWebhook.js");
+
+      // Create a fake request object with the test data
+      const fakeReq = {
+        body: notificationData
+      };
+
+      // Send the test notification (pass null for res since we don't need response handling)
+      await handleJellyfinWebhook(fakeReq, null, discordClient, pendingRequests);
+
+      res.json({
+        success: true,
+        message: `Test ${type} notification sent successfully! Check your Discord channel.`,
+      });
+    } catch (error) {
+      logger.error("Failed to send test notification:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to send test notification. Check logs for details.",
       });
     }
   });
