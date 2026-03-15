@@ -13,10 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This release addresses two stored XSS vulnerabilities reported by [@AdrianMendez01](https://github.com/AdrianMendez01).
 
-**GHSA-6mg4-788h-7g9g — Stored XSS via Discord member display names**
+**GHSA-qpmq-6wjc-w28q — Stored XSS via Discord member display names** (reported by [@xdnewlun1](https://github.com/xdnewlun1))
 The Discord member dropdown was built using `innerHTML` with unsanitized display names fetched from the Discord API. A Discord user whose display name contained HTML or JavaScript could inject scripts that executed in the dashboard context, targeting any admin viewing the user-mapping page.
 
-**GHSA-qpmq-6wjc-w28q — Stored XSS via Jellyseerr usernames**
+**GHSA-6mg4-788h-7g9g — Stored XSS via Jellyseerr usernames** (reported by [@Rex50527](https://github.com/Rex50527))
 Jellyseerr usernames retrieved from the API were injected into the dashboard via `innerHTML` without sanitization. A Jellyseerr account with a crafted username could inject scripts that executed when an admin loaded the user-mapping page.
 
 - **DOM API rewrite for member dropdown**: The Discord member selector now builds list items using `createElement` / `textContent` instead of `innerHTML`. Display names and avatar URLs are treated as data, not markup
