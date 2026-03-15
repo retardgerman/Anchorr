@@ -2,6 +2,16 @@
 let currentTranslations = {};
 let currentLanguage = 'en';
 
+function isSafeAvatarUrl(url) {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch (e) {
+    return false;
+  }
+}
+
 async function loadTranslations(language) {
   try {
     const response = await fetch(`/locales/${language}.json`);
@@ -22,6 +32,16 @@ async function loadTranslations(language) {
   }
 }
 
+function sanitizeTranslationHtml(str) {
+  // Strip script tags, event handlers and javascript: URLs from translation strings.
+  // Translations may contain safe markup (strong, code, a) so we can't use textContent,
+  // but we must prevent injected scripts from executing.
+  return str
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "")
+    .replace(/javascript\s*:/gi, "");
+}
+
 function updateUITranslations() {
   // Update all elements with data-i18n attributes
   document.querySelectorAll('[data-i18n]').forEach(element => {
@@ -33,8 +53,9 @@ function updateUITranslations() {
       if (attrName) {
         element.setAttribute(attrName, translation);
       } else {
-        // Regular text content translation
-        element.innerHTML = translation;
+        // Sanitize before injecting — translations may contain safe markup (strong, code)
+        // but must never execute scripts or event handlers
+        element.innerHTML = sanitizeTranslationHtml(translation);
       }
     }
   });
@@ -864,15 +885,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Initialize webhook URL on page load with actual server port
   updateWebhookUrl();
 
-  // Copy webhook secret
-  document.getElementById("copy-webhook-secret-btn").addEventListener("click", () => {
-    const textToCopy = document.getElementById("WEBHOOK_SECRET").value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textToCopy)
-        .then(() => showToast("Webhook secret copied to clipboard!"))
-        .catch(() => fallbackCopyTextToClipboard(textToCopy));
-    } else {
-      fallbackCopyTextToClipboard(textToCopy);
+  // Copy webhook secret (fetched from dedicated endpoint, not from form input)
+  document.getElementById("copy-webhook-secret-btn").addEventListener("click", async () => {
+    try {
+      const response = await fetch("/api/webhook-secret");
+      if (!response.ok) throw new Error("Failed to fetch webhook secret");
+      const data = await response.json();
+      const textToCopy = data.secret || "";
+      if (!textToCopy) {
+        showToast("No webhook secret configured.");
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy)
+          .then(() => showToast("Webhook secret copied to clipboard!"))
+          .catch(() => fallbackCopyTextToClipboard(textToCopy));
+      } else {
+        fallbackCopyTextToClipboard(textToCopy);
+      }
+    } catch (error) {
+      showToast("Failed to copy webhook secret.");
     }
   });
 
@@ -1219,7 +1251,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (error) {
         testRandomPickBtn.style.backgroundColor = "#f38ba8";
-        testRandomPickBtn.innerHTML = `<i class="bi bi-exclamation-circle"></i> ${error.message}`;
+        testRandomPickBtn.innerHTML = `<i class="bi bi-exclamation-circle"></i> ${escapeHtml(error.message)}`;
         setTimeout(() => {
           testRandomPickBtn.innerHTML = originalText;
           testRandomPickBtn.style.backgroundColor = "";
@@ -1459,10 +1491,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (error) {
         librariesList.innerHTML = `<div style="padding: 1rem; color: var(--red); background: var(--surface0); border-radius: 6px;">
-          <i class="bi bi-exclamation-triangle" style="margin-right: 0.5rem;"></i>${
+          <i class="bi bi-exclamation-triangle" style="margin-right: 0.5rem;"></i>${escapeHtml(
             error.message ||
             "Failed to load libraries. Please check your Jellyfin URL and API Key."
-          }
+          )}
         </div>`;
       } finally {
         fetchLibrariesBtn.disabled = false;
@@ -1990,18 +2022,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       const isInMapping = currentMappings.some(
         (mapping) => mapping.discordUserId === member.id
       );
-      const checkmarkHtml = isInMapping
-        ? `<i class="bi bi-check-circle-fill" style="color: var(--green); margin-left: auto; font-size: 1.1rem;"></i>`
-        : "";
 
-      option.innerHTML = `
-        <img src="${member.avatar}" alt="${member.displayName}">
-        <div class="custom-select-option-text">
-          <div class="custom-select-option-name">${member.displayName}</div>
-          <div class="custom-select-option-username">@${member.username}</div>
-        </div>
-        ${checkmarkHtml}
-      `;
+      // Build option content safely via DOM APIs (no avatar URL interpolation into innerHTML)
+      const textContainer = document.createElement("div");
+      textContainer.className = "custom-select-option-text";
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "custom-select-option-name";
+      nameDiv.textContent = member.displayName;
+      const usernameDiv = document.createElement("div");
+      usernameDiv.className = "custom-select-option-username";
+      usernameDiv.textContent = "@" + member.username;
+      textContainer.appendChild(nameDiv);
+      textContainer.appendChild(usernameDiv);
+      const avatarImg = document.createElement("img");
+      avatarImg.alt = member.displayName || "";
+      if (isSafeAvatarUrl(member.avatar)) {
+        avatarImg.src = member.avatar;
+      }
+      option.appendChild(avatarImg);
+      option.appendChild(textContainer);
+      if (isInMapping) {
+        const checkIcon = document.createElement("i");
+        checkIcon.className = "bi bi-check-circle-fill";
+        checkIcon.style.color = "var(--green)";
+        checkIcon.style.marginLeft = "auto";
+        checkIcon.style.fontSize = "1.1rem";
+        option.appendChild(checkIcon);
+      }
 
       option.addEventListener("click", () => {
         selectDiscordUser(member);
@@ -2034,10 +2081,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
 
-    display.innerHTML = `
-      <img src="${member.avatar}" alt="${member.displayName}">
-      <span>${member.displayName} (@${member.username})</span>
-    `;
+    // Safely build selected display using DOM APIs
+    while (display.firstChild) {
+      display.removeChild(display.firstChild);
+    }
+    const img = document.createElement("img");
+    img.alt = member.displayName || "";
+    if (isSafeAvatarUrl(member.avatar)) {
+      img.src = member.avatar;
+    }
+    const span = document.createElement("span");
+    span.textContent = `${member.displayName} (@${member.username})`;
+    display.appendChild(img);
+    display.appendChild(span);
 
     // Force display to be visible immediately
     display.style.display = "flex";
@@ -2107,12 +2163,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       option.dataset.email = user.email || "";
       option.dataset.avatar = user.avatar || "";
 
-      const avatarHtml = user.avatar
-        ? `<img src="${user.avatar}" alt="${user.displayName}">`
-        : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--surface1); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--mauve);">${user.displayName
-            .charAt(0)
-            .toUpperCase()}</div>`;
-
       // Check if this user is already in active mappings
       const isInMapping = currentMappings.some(
         (mapping) => String(mapping.jellyseerrUserId) === String(user.id)
@@ -2122,17 +2172,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         : "";
 
       option.innerHTML = `
-        ${avatarHtml}
         <div class="custom-select-option-text">
-          <div class="custom-select-option-name">${user.displayName}</div>
+          <div class="custom-select-option-name">${escapeHtml(user.displayName)}</div>
           ${
             user.email
-              ? `<div class="custom-select-option-username">${user.email}</div>`
+              ? `<div class="custom-select-option-username">${escapeHtml(user.email)}</div>`
               : ""
           }
         </div>
         ${checkmarkHtml}
       `;
+      // Safely insert avatar using DOM API (no string interpolation)
+      if (user.avatar && isSafeAvatarUrl(user.avatar)) {
+        const img = document.createElement("img");
+        img.src = user.avatar;
+        img.alt = user.displayName || "";
+        option.insertBefore(img, option.firstChild);
+      } else {
+        const fallback = document.createElement("div");
+        fallback.style.cssText = "width:36px;height:36px;border-radius:50%;background:var(--surface1);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--mauve);flex-shrink:0";
+        fallback.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : "?";
+        option.insertBefore(fallback, option.firstChild);
+      }
 
       option.addEventListener("click", () => {
         selectJellyseerrUser(user);
@@ -2166,16 +2227,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
 
-    const avatarHtml = user.avatar
-      ? `<img src="${user.avatar}" alt="${user.displayName}">`
-      : `<div style="width: 32px; height: 32px; border-radius: 50%; background: var(--surface1); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--mauve); flex-shrink: 0;">${user.displayName
-          .charAt(0)
-          .toUpperCase()}</div>`;
-
-    display.innerHTML = `
-      ${avatarHtml}
-      <span>${user.displayName}${user.email ? ` (${user.email})` : ""}</span>
-    `;
+    // Safely build selected display using DOM API (no string interpolation for URLs)
+    while (display.firstChild) {
+      display.removeChild(display.firstChild);
+    }
+    if (user.avatar && isSafeAvatarUrl(user.avatar)) {
+      const img = document.createElement("img");
+      img.src = user.avatar;
+      img.alt = user.displayName || "";
+      img.style.cssText = "width:32px;height:32px;border-radius:50%;margin-right:0.75rem;flex-shrink:0";
+      display.appendChild(img);
+    } else {
+      const fallback = document.createElement("div");
+      fallback.style.cssText = "width:32px;height:32px;border-radius:50%;background:var(--surface1);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--mauve);flex-shrink:0;margin-right:0.75rem";
+      fallback.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : "?";
+      display.appendChild(fallback);
+    }
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = user.email
+      ? `${user.displayName} (${user.email})`
+      : (user.displayName || "");
+    display.appendChild(nameSpan);
 
     // Force display to be visible immediately
     display.style.display = "flex";
@@ -2320,8 +2392,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           avatarUrl = discordMember?.avatar;
         }
 
-        const avatarHtml = avatarUrl
-          ? `<img src="${avatarUrl}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${discordName}">`
+        const safeAvatarUrl = isSafeAvatarUrl(avatarUrl)
+          ? new URL(avatarUrl, window.location.origin).href
+          : null;
+        const avatarHtml = safeAvatarUrl
+          ? `<img src="${escapeHtml(safeAvatarUrl)}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${escapeHtml(discordName)}">`
           : "";
 
         return `
@@ -2609,13 +2684,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (selectedValue) {
       const member = discordMembers.find((m) => m.id === selectedValue);
       if (member) {
-        trigger.innerHTML = `
-          <div class="custom-select-trigger-content">
-            <img src="${member.avatar}" alt="${member.displayName}">
-            <span>${member.displayName} (@${member.username})</span>
-          </div>
-          <i class="bi bi-chevron-down"></i>
-        `;
+        // Build trigger content via DOM APIs
+        while (trigger.firstChild) {
+          trigger.removeChild(trigger.firstChild);
+        }
+        const triggerContent = document.createElement("div");
+        triggerContent.className = "custom-select-trigger-content";
+        const img = document.createElement("img");
+        img.alt = member.displayName || "";
+        if (isSafeAvatarUrl(member.avatar)) {
+          img.src = member.avatar;
+        }
+        const span = document.createElement("span");
+        span.textContent = `${member.displayName} (@${member.username})`;
+        triggerContent.appendChild(img);
+        triggerContent.appendChild(span);
+        const chevron = document.createElement("i");
+        chevron.classList.add("bi", "bi-chevron-down");
+        trigger.appendChild(triggerContent);
+        trigger.appendChild(chevron);
         return;
       }
     }
@@ -2713,8 +2800,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (user) {
         trigger.innerHTML = `
           <div class="custom-select-trigger-content">
-            <span>${user.displayName}${
-          user.email ? ` (${user.email})` : ""
+            <span>${escapeHtml(user.displayName)}${
+          user.email ? ` (${escapeHtml(user.email)})` : ""
         }</span>
           </div>
           <i class="bi bi-chevron-down"></i>
@@ -2817,7 +2904,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                  value="${role.id}"
                  ${isChecked ? "checked" : ""}>
           <div class="role-color-indicator" style="background-color: ${roleColor};"></div>
-          <span class="role-name">${role.name}</span>
+          <span class="role-name">${escapeHtml(role.name)}</span>
           <span class="role-member-count">${
             role.memberCount || 0
           } members</span>
