@@ -257,7 +257,8 @@ export const checkAuth = (req, res) => {
       const users = getUsers();
       return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
     }
-    // Mirror authenticateToken: reject tokens without JTI or that have been revoked
+    // Mirror authenticateToken's revocation behavior: accept legacy tokens without JTI,
+    // and reject only tokens with a JTI that has been revoked
     if (!user || typeof user !== "object") {
       const users = getUsers();
       return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
