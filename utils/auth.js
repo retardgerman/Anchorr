@@ -120,7 +120,11 @@ export const authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
-    if (user.jti && isTokenRevoked(user.jti)) {
+    // Reject tokens that predate JTI issuance — they cannot be revoked
+    if (!user || typeof user !== "object" || !user.jti) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+    if (isTokenRevoked(user.jti)) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
     req.user = user;
@@ -242,6 +246,11 @@ export const checkAuth = (req, res) => {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
+      const users = getUsers();
+      return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
+    }
+    // Mirror authenticateToken: reject tokens without JTI or that have been revoked
+    if (!user || typeof user !== "object" || !user.jti || isTokenRevoked(user.jti)) {
       const users = getUsers();
       return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
     }
