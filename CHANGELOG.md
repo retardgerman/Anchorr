@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔒 Security
 
-This release addresses two stored XSS vulnerabilities reported by [@AdrianMendez01](https://github.com/AdrianMendez01).
+This release addresses two stored XSS vulnerabilities reported by [@xdnewlun1](https://github.com/xdnewlun1) and [@Rex50527](https://github.com/Rex50527).
 
 **GHSA-qpmq-6wjc-w28q — Stored XSS via Discord member display names** (reported by [@xdnewlun1](https://github.com/xdnewlun1))
 The Discord member dropdown was built using `innerHTML` with unsanitized display names fetched from the Discord API. A Discord user whose display name contained HTML or JavaScript could inject scripts that executed in the dashboard context, targeting any admin viewing the user-mapping page.
