@@ -126,7 +126,7 @@ export const authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
-    // Reject tokens that predate JTI issuance — they cannot be revoked
+    // Ensure the decoded token payload is an object; non-object payloads are rejected
     if (!user || typeof user !== "object") {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
