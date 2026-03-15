@@ -47,6 +47,29 @@ function getOrGenerateJwtSecret() {
 // Initialize JWT_SECRET once at module load (CRITICAL: must be constant for token verification)
 const JWT_SECRET = getOrGenerateJwtSecret();
 
+// In-memory set of revoked token JTIs (cleared on restart, which also invalidates all tokens if secret rotates)
+const revokedTokens = new Set();
+
+function revokeToken(token) {
+  try {
+    const decoded = jwt.decode(token);
+    if (decoded?.jti) {
+      revokedTokens.add(decoded.jti);
+      // Auto-cleanup: remove JTI after token would have expired
+      if (decoded.exp) {
+        const ttl = decoded.exp * 1000 - Date.now();
+        if (ttl > 0) {
+          setTimeout(() => revokedTokens.delete(decoded.jti), ttl);
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+function isTokenRevoked(jti) {
+  return revokedTokens.has(jti);
+}
+
 // Generate or retrieve WEBHOOK_SECRET
 function getOrGenerateWebhookSecret() {
   const config = readConfig();
@@ -85,6 +108,9 @@ export const authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
+    if (user.jti && isTokenRevoked(user.jti)) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
     req.user = user;
     next();
   });
@@ -115,7 +141,7 @@ export const login = async (req, res) => {
       .json({ success: false, message: "Invalid credentials" });
   }
 
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
+  const token = jwt.sign({ id: user.id, username: user.username, jti: crypto.randomUUID() }, JWT_SECRET, {
     expiresIn: "7d",
   });
 
@@ -160,7 +186,7 @@ export const register = async (req, res) => {
 
     // Auto-login after register
     const token = jwt.sign(
-      { id: newUser.id, username: newUser.username },
+      { id: newUser.id, username: newUser.username, jti: crypto.randomUUID() },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -186,6 +212,10 @@ export const register = async (req, res) => {
 };
 
 export const logout = (req, res) => {
+  const token = req.cookies.auth_token;
+  if (token) {
+    revokeToken(token);
+  }
   res.clearCookie("auth_token");
   res.json({ success: true, message: "Logged out successfully" });
 };
