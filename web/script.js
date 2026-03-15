@@ -2011,18 +2011,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       const isInMapping = currentMappings.some(
         (mapping) => mapping.discordUserId === member.id
       );
-      const checkmarkHtml = isInMapping
-        ? `<i class="bi bi-check-circle-fill" style="color: var(--green); margin-left: auto; font-size: 1.1rem;"></i>`
-        : "";
 
-      option.innerHTML = `
-        <img src="${member.avatar}" alt="${escapeHtml(member.displayName)}">
-        <div class="custom-select-option-text">
-          <div class="custom-select-option-name">${escapeHtml(member.displayName)}</div>
-          <div class="custom-select-option-username">@${escapeHtml(member.username)}</div>
-        </div>
-        ${checkmarkHtml}
-      `;
+      // Build option content safely via DOM APIs (no avatar URL interpolation into innerHTML)
+      const textContainer = document.createElement("div");
+      textContainer.className = "custom-select-option-text";
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "custom-select-option-name";
+      nameDiv.textContent = member.displayName;
+      const usernameDiv = document.createElement("div");
+      usernameDiv.className = "custom-select-option-username";
+      usernameDiv.textContent = "@" + member.username;
+      textContainer.appendChild(nameDiv);
+      textContainer.appendChild(usernameDiv);
+      const avatarImg = document.createElement("img");
+      avatarImg.alt = member.displayName || "";
+      if (isSafeAvatarUrl(member.avatar)) {
+        avatarImg.src = member.avatar;
+      }
+      option.appendChild(avatarImg);
+      option.appendChild(textContainer);
+      if (isInMapping) {
+        const checkIcon = document.createElement("i");
+        checkIcon.className = "bi bi-check-circle-fill";
+        checkIcon.style.color = "var(--green)";
+        checkIcon.style.marginLeft = "auto";
+        checkIcon.style.fontSize = "1.1rem";
+        option.appendChild(checkIcon);
+      }
 
       option.addEventListener("click", () => {
         selectDiscordUser(member);
@@ -2055,10 +2070,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
 
-    display.innerHTML = `
-      <img src="${member.avatar}" alt="${escapeHtml(member.displayName)}">
-      <span>${escapeHtml(member.displayName)} (@${escapeHtml(member.username)})</span>
-    `;
+    // Safely build selected display using DOM APIs
+    while (display.firstChild) {
+      display.removeChild(display.firstChild);
+    }
+    const img = document.createElement("img");
+    img.alt = member.displayName || "";
+    if (isSafeAvatarUrl(member.avatar)) {
+      img.src = member.avatar;
+    }
+    const span = document.createElement("span");
+    span.textContent = `${member.displayName} (@${member.username})`;
+    display.appendChild(img);
+    display.appendChild(span);
 
     // Force display to be visible immediately
     display.style.display = "flex";
@@ -2357,8 +2381,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           avatarUrl = discordMember?.avatar;
         }
 
-        const avatarHtml = avatarUrl
-          ? `<img src="${avatarUrl}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${escapeHtml(discordName)}">`
+        const safeAvatarUrl = isSafeAvatarUrl(avatarUrl) ? avatarUrl : null;
+        const avatarHtml = safeAvatarUrl
+          ? `<img src="${safeAvatarUrl}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${escapeHtml(discordName)}">`
           : "";
 
         return `
@@ -2646,13 +2671,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (selectedValue) {
       const member = discordMembers.find((m) => m.id === selectedValue);
       if (member) {
-        trigger.innerHTML = `
-          <div class="custom-select-trigger-content">
-            <img src="${member.avatar}" alt="${escapeHtml(member.displayName)}">
-            <span>${escapeHtml(member.displayName)} (@${escapeHtml(member.username)})</span>
-          </div>
-          <i class="bi bi-chevron-down"></i>
-        `;
+        // Build trigger content via DOM APIs
+        while (trigger.firstChild) {
+          trigger.removeChild(trigger.firstChild);
+        }
+        const triggerContent = document.createElement("div");
+        triggerContent.className = "custom-select-trigger-content";
+        const img = document.createElement("img");
+        img.alt = member.displayName || "";
+        if (isSafeAvatarUrl(member.avatar)) {
+          img.src = member.avatar;
+        }
+        const span = document.createElement("span");
+        span.textContent = `${member.displayName} (@${member.username})`;
+        triggerContent.appendChild(img);
+        triggerContent.appendChild(span);
+        const chevron = document.createElement("i");
+        chevron.classList.add("bi", "bi-chevron-down");
+        trigger.appendChild(triggerContent);
+        trigger.appendChild(chevron);
         return;
       }
     }
