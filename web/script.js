@@ -32,6 +32,16 @@ async function loadTranslations(language) {
   }
 }
 
+function sanitizeTranslationHtml(str) {
+  // Strip script tags, event handlers and javascript: URLs from translation strings.
+  // Translations may contain safe markup (strong, code, a) so we can't use textContent,
+  // but we must prevent injected scripts from executing.
+  return str
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "")
+    .replace(/javascript\s*:/gi, "");
+}
+
 function updateUITranslations() {
   // Update all elements with data-i18n attributes
   document.querySelectorAll('[data-i18n]').forEach(element => {
@@ -43,8 +53,9 @@ function updateUITranslations() {
       if (attrName) {
         element.setAttribute(attrName, translation);
       } else {
-        // Regular text content translation
-        element.innerHTML = translation;
+        // Sanitize before injecting — translations may contain safe markup (strong, code)
+        // but must never execute scripts or event handlers
+        element.innerHTML = sanitizeTranslationHtml(translation);
       }
     }
   });
