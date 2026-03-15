@@ -2381,9 +2381,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           avatarUrl = discordMember?.avatar;
         }
 
-        const safeAvatarUrl = isSafeAvatarUrl(avatarUrl) ? avatarUrl : null;
+        const safeAvatarUrl = isSafeAvatarUrl(avatarUrl)
+          ? new URL(avatarUrl, window.location.origin).href
+          : null;
         const avatarHtml = safeAvatarUrl
-          ? `<img src="${safeAvatarUrl}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${escapeHtml(discordName)}">`
+          ? `<img src="${escapeHtml(safeAvatarUrl)}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${escapeHtml(discordName)}">`
           : "";
 
         return `
