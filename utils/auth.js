@@ -49,21 +49,33 @@ const JWT_SECRET = getOrGenerateJwtSecret();
 
 // In-memory set of revoked token JTIs (cleared on restart, which also invalidates all tokens if secret rotates)
 const revokedTokens = new Set();
+// Maximum time (in ms) to keep a revoked token JTI in memory, to avoid unbounded TTLs
+const MAX_REVOKE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function revokeToken(token) {
   try {
-    const decoded = jwt.decode(token);
-    if (decoded?.jti) {
-      revokedTokens.add(decoded.jti);
-      // Auto-cleanup: remove JTI after token would have expired
-      if (decoded.exp) {
-        const ttl = decoded.exp * 1000 - Date.now();
-        if (ttl > 0) {
-          setTimeout(() => revokedTokens.delete(decoded.jti), ttl);
-        }
-      }
+    // Verify token signature and standard claims before trusting its contents
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded || typeof decoded !== "object" || !decoded.jti) {
+      return;
     }
-  } catch (_) {}
+    // Only handle tokens that have a valid expiration time
+    if (typeof decoded.exp !== "number" || !Number.isFinite(decoded.exp)) {
+      return;
+    }
+    const nowMs = Date.now();
+    const ttlFromExpMs = decoded.exp * 1000 - nowMs;
+    // Skip already-expired tokens
+    if (ttlFromExpMs <= 0) {
+      return;
+    }
+    const ttl = Math.min(ttlFromExpMs, MAX_REVOKE_TTL_MS);
+    revokedTokens.add(decoded.jti);
+    // Auto-cleanup: remove JTI after bounded TTL
+    setTimeout(() => revokedTokens.delete(decoded.jti), ttl);
+  } catch (_) {
+    // Ignore invalid or unverifiable tokens; they cannot be revoked
+  }
 }
 
 function isTokenRevoked(jti) {
