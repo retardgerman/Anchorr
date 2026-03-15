@@ -864,15 +864,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Initialize webhook URL on page load with actual server port
   updateWebhookUrl();
 
-  // Copy webhook secret
-  document.getElementById("copy-webhook-secret-btn").addEventListener("click", () => {
-    const textToCopy = document.getElementById("WEBHOOK_SECRET").value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textToCopy)
-        .then(() => showToast("Webhook secret copied to clipboard!"))
-        .catch(() => fallbackCopyTextToClipboard(textToCopy));
-    } else {
-      fallbackCopyTextToClipboard(textToCopy);
+  // Copy webhook secret (fetched from dedicated endpoint, not from form input)
+  document.getElementById("copy-webhook-secret-btn").addEventListener("click", async () => {
+    try {
+      const response = await fetch("/api/webhook-secret");
+      if (!response.ok) throw new Error("Failed to fetch webhook secret");
+      const data = await response.json();
+      const textToCopy = data.secret || "";
+      if (!textToCopy) {
+        showToast("No webhook secret configured.");
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy)
+          .then(() => showToast("Webhook secret copied to clipboard!"))
+          .catch(() => fallbackCopyTextToClipboard(textToCopy));
+      } else {
+        fallbackCopyTextToClipboard(textToCopy);
+      }
+    } catch (error) {
+      showToast("Failed to copy webhook secret.");
     }
   });
 
@@ -1219,7 +1230,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (error) {
         testRandomPickBtn.style.backgroundColor = "#f38ba8";
-        testRandomPickBtn.innerHTML = `<i class="bi bi-exclamation-circle"></i> ${error.message}`;
+        testRandomPickBtn.innerHTML = `<i class="bi bi-exclamation-circle"></i> ${escapeHtml(error.message)}`;
         setTimeout(() => {
           testRandomPickBtn.innerHTML = originalText;
           testRandomPickBtn.style.backgroundColor = "";
@@ -1459,10 +1470,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (error) {
         librariesList.innerHTML = `<div style="padding: 1rem; color: var(--red); background: var(--surface0); border-radius: 6px;">
-          <i class="bi bi-exclamation-triangle" style="margin-right: 0.5rem;"></i>${
+          <i class="bi bi-exclamation-triangle" style="margin-right: 0.5rem;"></i>${escapeHtml(
             error.message ||
             "Failed to load libraries. Please check your Jellyfin URL and API Key."
-          }
+          )}
         </div>`;
       } finally {
         fetchLibrariesBtn.disabled = false;
@@ -1995,10 +2006,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         : "";
 
       option.innerHTML = `
-        <img src="${member.avatar}" alt="${member.displayName}">
+        <img src="${member.avatar}" alt="${escapeHtml(member.displayName)}">
         <div class="custom-select-option-text">
-          <div class="custom-select-option-name">${member.displayName}</div>
-          <div class="custom-select-option-username">@${member.username}</div>
+          <div class="custom-select-option-name">${escapeHtml(member.displayName)}</div>
+          <div class="custom-select-option-username">@${escapeHtml(member.username)}</div>
         </div>
         ${checkmarkHtml}
       `;
@@ -2035,8 +2046,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     display.innerHTML = `
-      <img src="${member.avatar}" alt="${member.displayName}">
-      <span>${member.displayName} (@${member.username})</span>
+      <img src="${member.avatar}" alt="${escapeHtml(member.displayName)}">
+      <span>${escapeHtml(member.displayName)} (@${escapeHtml(member.username)})</span>
     `;
 
     // Force display to be visible immediately
@@ -2108,8 +2119,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       option.dataset.avatar = user.avatar || "";
 
       const avatarHtml = user.avatar
-        ? `<img src="${user.avatar}" alt="${user.displayName}">`
-        : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--surface1); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--mauve);">${user.displayName
+        ? `<img src="${user.avatar}" alt="${escapeHtml(user.displayName)}">`
+        : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--surface1); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--mauve);">${escapeHtml(user.displayName)
             .charAt(0)
             .toUpperCase()}</div>`;
 
@@ -2124,10 +2135,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       option.innerHTML = `
         ${avatarHtml}
         <div class="custom-select-option-text">
-          <div class="custom-select-option-name">${user.displayName}</div>
+          <div class="custom-select-option-name">${escapeHtml(user.displayName)}</div>
           ${
             user.email
-              ? `<div class="custom-select-option-username">${user.email}</div>`
+              ? `<div class="custom-select-option-username">${escapeHtml(user.email)}</div>`
               : ""
           }
         </div>
@@ -2167,14 +2178,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const avatarHtml = user.avatar
-      ? `<img src="${user.avatar}" alt="${user.displayName}">`
-      : `<div style="width: 32px; height: 32px; border-radius: 50%; background: var(--surface1); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--mauve); flex-shrink: 0;">${user.displayName
+      ? `<img src="${user.avatar}" alt="${escapeHtml(user.displayName)}">`
+      : `<div style="width: 32px; height: 32px; border-radius: 50%; background: var(--surface1); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--mauve); flex-shrink: 0;">${escapeHtml(user.displayName)
           .charAt(0)
           .toUpperCase()}</div>`;
 
     display.innerHTML = `
       ${avatarHtml}
-      <span>${user.displayName}${user.email ? ` (${user.email})` : ""}</span>
+      <span>${escapeHtml(user.displayName)}${user.email ? ` (${escapeHtml(user.email)})` : ""}</span>
     `;
 
     // Force display to be visible immediately
@@ -2321,7 +2332,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         const avatarHtml = avatarUrl
-          ? `<img src="${avatarUrl}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${discordName}">`
+          ? `<img src="${avatarUrl}" style="width: 42px; height: 42px; border-radius: 50%; margin-right: 0.75rem; flex-shrink: 0;" alt="${escapeHtml(discordName)}">`
           : "";
 
         return `
@@ -2611,8 +2622,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (member) {
         trigger.innerHTML = `
           <div class="custom-select-trigger-content">
-            <img src="${member.avatar}" alt="${member.displayName}">
-            <span>${member.displayName} (@${member.username})</span>
+            <img src="${member.avatar}" alt="${escapeHtml(member.displayName)}">
+            <span>${escapeHtml(member.displayName)} (@${escapeHtml(member.username)})</span>
           </div>
           <i class="bi bi-chevron-down"></i>
         `;
@@ -2713,8 +2724,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (user) {
         trigger.innerHTML = `
           <div class="custom-select-trigger-content">
-            <span>${user.displayName}${
-          user.email ? ` (${user.email})` : ""
+            <span>${escapeHtml(user.displayName)}${
+          user.email ? ` (${escapeHtml(user.email)})` : ""
         }</span>
           </div>
           <i class="bi bi-chevron-down"></i>
@@ -2817,7 +2828,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                  value="${role.id}"
                  ${isChecked ? "checked" : ""}>
           <div class="role-color-indicator" style="background-color: ${roleColor};"></div>
-          <span class="role-name">${role.name}</span>
+          <span class="role-name">${escapeHtml(role.name)}</span>
           <span class="role-member-count">${
             role.memberCount || 0
           } members</span>
