@@ -2994,8 +2994,12 @@ function configureWebServer() {
 
   // Return webhook secret for copy-to-clipboard (stripped from /api/config)
   app.get("/api/webhook-secret", authenticateToken, (req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
     const config = readConfig();
-    res.json({ secret: config?.WEBHOOK_SECRET || "" });
+    res.json({ secret: config?.WEBHOOK_SECRET || null });
   });
 
   // Get available languages dynamically from locales directory
@@ -3081,9 +3085,10 @@ function configureWebServer() {
             {},
         };
 
-        // Preserve sensitive fields when frontend sends masked values
+        // Preserve sensitive fields only when the frontend sends a masked placeholder
+        // or omits the field entirely — an explicit empty string intentionally clears the credential
         for (const field of SENSITIVE_FIELDS) {
-          if (!configData[field] || isMaskedValue(configData[field])) {
+          if (!(field in configData) || isMaskedValue(configData[field])) {
             finalConfig[field] = existingConfig[field] || "";
           }
         }
