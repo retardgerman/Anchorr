@@ -9,6 +9,9 @@ import {
   saveUser as saveUserToConfig,
 } from "./configFile.js";
 
+const AUTH_TOKEN_EXPIRATION = "7d";
+const AUTH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 // Generate or retrieve JWT_SECRET
 function getOrGenerateJwtSecret() {
   // ALWAYS try to load from config file first (most important)
@@ -71,8 +74,11 @@ function revokeToken(token) {
     }
     const ttl = Math.min(ttlFromExpMs, MAX_REVOKE_TTL_MS);
     revokedTokens.add(decoded.jti);
-    // Auto-cleanup: remove JTI after bounded TTL
-    setTimeout(() => revokedTokens.delete(decoded.jti), ttl);
+    // Auto-cleanup: remove JTI after bounded TTL (.unref so timers don't block process exit)
+    const timeout = setTimeout(() => revokedTokens.delete(decoded.jti), ttl);
+    if (typeof timeout.unref === "function") {
+      timeout.unref();
+    }
   } catch (_) {
     // Ignore invalid or unverifiable tokens; they cannot be revoked
   }
@@ -121,10 +127,11 @@ export const authenticateToken = (req, res, next) => {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
     // Reject tokens that predate JTI issuance — they cannot be revoked
-    if (!user || typeof user !== "object" || !user.jti) {
+    if (!user || typeof user !== "object") {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
-    if (isTokenRevoked(user.jti)) {
+    // Legacy tokens without JTI remain valid until expiry; JTI tokens enforce revocation
+    if (user.jti && isTokenRevoked(user.jti)) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
     req.user = user;
@@ -158,14 +165,14 @@ export const login = async (req, res) => {
   }
 
   const token = jwt.sign({ id: user.id, username: user.username, jti: crypto.randomUUID() }, JWT_SECRET, {
-    expiresIn: "7d",
+    expiresIn: AUTH_TOKEN_EXPIRATION,
   });
 
   res.cookie("auth_token", token, {
     httpOnly: true,
     secure: req.secure || req.headers["x-forwarded-proto"] === "https",
     sameSite: "strict",
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: AUTH_TOKEN_MAX_AGE_MS,
   });
 
   res.json({
@@ -204,14 +211,14 @@ export const register = async (req, res) => {
     const token = jwt.sign(
       { id: newUser.id, username: newUser.username, jti: crypto.randomUUID() },
       JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: AUTH_TOKEN_EXPIRATION }
     );
 
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: req.secure || req.headers["x-forwarded-proto"] === "https",
       sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: AUTH_TOKEN_MAX_AGE_MS,
     });
 
     res.json({
@@ -251,7 +258,12 @@ export const checkAuth = (req, res) => {
       return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
     }
     // Mirror authenticateToken: reject tokens without JTI or that have been revoked
-    if (!user || typeof user !== "object" || !user.jti || isTokenRevoked(user.jti)) {
+    if (!user || typeof user !== "object") {
+      const users = getUsers();
+      return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
+    }
+    // Legacy tokens without JTI remain valid until expiry; JTI tokens enforce revocation
+    if (user.jti && isTokenRevoked(user.jti)) {
       const users = getUsers();
       return res.json({ isAuthenticated: false, hasUsers: users.length > 0 });
     }
