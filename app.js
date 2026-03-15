@@ -73,6 +73,49 @@ function isValidUrl(string) {
   }
 }
 
+// --- Config Sanitization (Defense-in-depth) ---
+const MASKED_PREFIX = "••••••••";
+const SENSITIVE_FIELDS = [
+  "DISCORD_TOKEN",
+  "JELLYSEERR_API_KEY",
+  "JELLYFIN_API_KEY",
+  "TMDB_API_KEY",
+  "OMDB_API_KEY",
+];
+const STRIPPED_FIELDS = ["JWT_SECRET", "WEBHOOK_SECRET"];
+
+function maskSecret(value) {
+  if (!value || typeof value !== "string") return "";
+  return value.length > 4
+    ? MASKED_PREFIX + value.slice(-4)
+    : MASKED_PREFIX;
+}
+
+function isMaskedValue(value) {
+  return typeof value === "string" && value.startsWith(MASKED_PREFIX);
+}
+
+function sanitizeConfigForClient(config) {
+  if (!config) return config;
+  const sanitized = { ...config };
+
+  for (const field of SENSITIVE_FIELDS) {
+    if (sanitized[field]) {
+      sanitized[field] = maskSecret(sanitized[field]);
+    }
+  }
+  for (const field of STRIPPED_FIELDS) {
+    delete sanitized[field];
+  }
+
+  // Strip password hashes from USERS array
+  if (Array.isArray(sanitized.USERS)) {
+    sanitized.USERS = sanitized.USERS.map(({ password, ...user }) => user);
+  }
+
+  return sanitized;
+}
+
 // --- CONFIGURATION ---
 const ENV_PATH = path.join(process.cwd(), ".env");
 
@@ -2943,11 +2986,16 @@ function configureWebServer() {
   app.get("/api/config", authenticateToken, (req, res) => {
     const config = readConfig();
     if (config) {
-      res.json(config);
+      res.json(sanitizeConfigForClient(config));
     } else {
-      // If no config file, return the template from config/config.js
-      res.json(configTemplate);
+      res.json(sanitizeConfigForClient(configTemplate));
     }
+  });
+
+  // Return webhook secret for copy-to-clipboard (stripped from /api/config)
+  app.get("/api/webhook-secret", authenticateToken, (req, res) => {
+    const config = readConfig();
+    res.json({ secret: config?.WEBHOOK_SECRET || "" });
   });
 
   // Get available languages dynamically from locales directory
@@ -3032,6 +3080,13 @@ function configureWebServer() {
             existingConfig.JELLYFIN_NOTIFICATION_LIBRARIES ||
             {},
         };
+
+        // Preserve sensitive fields when frontend sends masked values
+        for (const field of SENSITIVE_FIELDS) {
+          if (!configData[field] || isMaskedValue(configData[field])) {
+            finalConfig[field] = existingConfig[field] || "";
+          }
+        }
 
         // Use centralized writeConfig with robust error handling
         if (!writeConfig(finalConfig)) {
@@ -3119,9 +3174,14 @@ function configureWebServer() {
     const configData = req.body;
     const oldToken = process.env.DISCORD_TOKEN;
 
+    // Resolve effective token (masked values mean "use existing")
+    const effectiveToken = isMaskedValue(configData.DISCORD_TOKEN)
+      ? process.env.DISCORD_TOKEN
+      : configData.DISCORD_TOKEN;
+
     // Check if Discord credentials are complete and changed
-    const hasDiscordCreds = configData.DISCORD_TOKEN && configData.BOT_ID;
-    const discordCredsChanged = oldToken !== configData.DISCORD_TOKEN;
+    const hasDiscordCreds = effectiveToken && configData.BOT_ID;
+    const discordCredsChanged = oldToken !== effectiveToken;
     const wouldAutoStart = !isBotRunning && hasDiscordCreds && discordCredsChanged;
 
     res.json({
@@ -3134,7 +3194,8 @@ function configureWebServer() {
 
   app.post("/api/test-jellyseerr", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
-    if (!url || !apiKey) {
+    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.JELLYSEERR_API_KEY : apiKey;
+    if (!url || !effectiveApiKey) {
       return res
         .status(400)
         .json({ success: false, message: "URL and API Key are required." });
@@ -3147,7 +3208,7 @@ function configureWebServer() {
       }
 
       const response = await axios.get(`${baseUrl}/settings/about`, {
-        headers: { "X-Api-Key": apiKey },
+        headers: { "X-Api-Key": effectiveApiKey },
         timeout: TIMEOUTS.JELLYSEERR_API,
       });
       const version = response.data?.version;
@@ -3173,7 +3234,8 @@ function configureWebServer() {
   // Fetch quality profiles
   app.post("/api/jellyseerr/quality-profiles", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
-    if (!url || !apiKey) {
+    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.JELLYSEERR_API_KEY : apiKey;
+    if (!url || !effectiveApiKey) {
       return res
         .status(400)
         .json({ success: false, message: "URL and API Key are required." });
@@ -3185,7 +3247,7 @@ function configureWebServer() {
         baseUrl += "/api/v1";
       }
 
-      const profiles = await jellyseerrApi.fetchQualityProfiles(baseUrl, apiKey);
+      const profiles = await jellyseerrApi.fetchQualityProfiles(baseUrl, effectiveApiKey);
       res.json({ success: true, profiles });
     } catch (error) {
       logger.error("Failed to fetch quality profiles:", error.message);
@@ -3199,7 +3261,8 @@ function configureWebServer() {
   // Fetch servers
   app.post("/api/jellyseerr/servers", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
-    if (!url || !apiKey) {
+    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.JELLYSEERR_API_KEY : apiKey;
+    if (!url || !effectiveApiKey) {
       return res
         .status(400)
         .json({ success: false, message: "URL and API Key are required." });
@@ -3211,7 +3274,7 @@ function configureWebServer() {
         baseUrl += "/api/v1";
       }
 
-      const servers = await jellyseerrApi.fetchServers(baseUrl, apiKey);
+      const servers = await jellyseerrApi.fetchServers(baseUrl, effectiveApiKey);
       res.json({ success: true, servers });
     } catch (error) {
       logger.error("Failed to fetch servers:", error.message);
