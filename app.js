@@ -2868,7 +2868,12 @@ function configureWebServer() {
   // Endpoint for Jellyfin libraries
   app.post("/api/jellyfin-libraries", authenticateToken, async (req, res) => {
     try {
-      const { url, apiKey } = req.body;
+      const { url } = req.body;
+      let { apiKey } = req.body;
+      // If the frontend sends back a masked placeholder, use the real key from config
+      if (isMaskedValue(apiKey)) {
+        apiKey = process.env.JELLYFIN_API_KEY;
+      }
 
       if (!url || !apiKey) {
         return res
