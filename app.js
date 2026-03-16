@@ -30,7 +30,7 @@ import {
 
 // --- MODULE IMPORTS ---
 import * as tmdbApi from "./api/tmdb.js";
-import * as jellyseerrApi from "./api/jellyseerr.js";
+import * as seerrApi from "./api/seerr.js";
 import { registerCommands } from "./discord/commands.js";
 import logger from "./utils/logger.js";
 import {
@@ -77,7 +77,7 @@ function isValidUrl(string) {
 const MASKED_PREFIX = "••••••••";
 const SENSITIVE_FIELDS = [
   "DISCORD_TOKEN",
-  "JELLYSEERR_API_KEY",
+  "SEERR_API_KEY",
   "JELLYFIN_API_KEY",
   "TMDB_API_KEY",
   "OMDB_API_KEY",
@@ -195,7 +195,7 @@ function loadConfig() {
         (k) =>
           k.startsWith("DISCORD") ||
           k.startsWith("JELLYFIN") ||
-          k.startsWith("JELLYSEERR")
+          k.startsWith("SEERR")
       ).length
     );
     logger.debug(
@@ -265,6 +265,36 @@ let jellyfinWebSocketClient = null;
 // --- PENDING REQUESTS TRACKING ---
 // Map to track user requests: key = "tmdbId-mediaType", value = Set of Discord user IDs
 const pendingRequests = new Map();
+
+const PENDING_REQUESTS_PATH = path.join(path.dirname(CONFIG_PATH), "pending-requests.json");
+
+function savePendingRequests() {
+  try {
+    const serialized = {};
+    for (const [key, userSet] of pendingRequests) {
+      serialized[key] = Array.from(userSet);
+    }
+    fs.writeFileSync(PENDING_REQUESTS_PATH, JSON.stringify(serialized, null, 2), { encoding: "utf-8", mode: 0o600 });
+  } catch (err) {
+    logger.warn(`⚠️ Failed to persist pending requests to disk: ${err.message}`);
+  }
+}
+
+function loadPendingRequests() {
+  if (!fs.existsSync(PENDING_REQUESTS_PATH)) return;
+  try {
+    const raw = fs.readFileSync(PENDING_REQUESTS_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    for (const [key, userArray] of Object.entries(parsed)) {
+      if (Array.isArray(userArray) && userArray.length > 0) {
+        pendingRequests.set(key, new Set(userArray));
+      }
+    }
+    logger.info(`✅ Loaded ${pendingRequests.size} pending request(s) from disk`);
+  } catch (err) {
+    logger.warn(`⚠️ Failed to load pending requests from disk: ${err.message}`);
+  }
+}
 
 // --- DAILY RANDOM PICK SCHEDULING ---
 let dailyRandomPickTimer = null;
@@ -441,6 +471,9 @@ async function startBot() {
     return { success: true, message: "Bot is already running." };
   }
 
+  // Restore any pending requests that survived a previous restart
+  loadPendingRequests();
+
   // Load the latest config from file
   const configLoaded = loadConfig();
   port = process.env.WEBHOOK_PORT || 8282; // Recalculate port in case it changed
@@ -468,24 +501,24 @@ async function startBot() {
   discordClient = client; // Store client instance globally
 
   // ----------------- CONFIG HELPERS (DYNAMIC) -----------------
-  const getJellyseerrUrl = () => {
-    let url = (process.env.JELLYSEERR_URL || "").replace(/\/$/, "");
+  const getSeerrUrl = () => {
+    let url = (process.env.SEERR_URL || "").replace(/\/$/, "");
     if (url && !url.endsWith("/api/v1")) url += "/api/v1";
     return url;
   };
-  const getJellyseerrApiKey = () => process.env.JELLYSEERR_API_KEY;
+  const getSeerrApiKey = () => process.env.SEERR_API_KEY;
   const getTmdbApiKey = () => process.env.TMDB_API_KEY;
-  const getJellyseerrAutoApprove = () => {
-    const val = process.env.JELLYSEERR_AUTO_APPROVE;
+  const getSeerrAutoApprove = () => {
+    const val = process.env.SEERR_AUTO_APPROVE;
     const isAuto = val === "true";
-    logger.info(`[CONFIG CHECK] JELLYSEERR_AUTO_APPROVE is currently: ${val} (Evaluated to: ${isAuto})`);
+    logger.info(`[CONFIG CHECK] SEERR_AUTO_APPROVE is currently: ${val} (Evaluated to: ${isAuto})`);
     return isAuto;
   };
 
   const BOT_ID = process.env.BOT_ID;
   const GUILD_ID = process.env.GUILD_ID;
-  const JELLYSEERR_URL = getJellyseerrUrl();
-  const JELLYSEERR_API_KEY = getJellyseerrApiKey();
+  const SEERR_URL = getSeerrUrl();
+  const SEERR_API_KEY = getSeerrApiKey();
   const TMDB_API_KEY = getTmdbApiKey();
 
   // ----------------- HELPERS -----------------
@@ -628,15 +661,15 @@ async function startBot() {
           ? "🎬 Movie found:"
           : "📺 TV show found:";
 
-    // Generate Jellyseerr URL for the author link
-    // Remove /api/v1 from getJellyseerrUrl() to get the base domain
+    // Generate Seerr URL for the author link
+    // Remove /api/v1 from getSeerrUrl() to get the base domain
     // Add ?manage=1 only for success status
-    let jellyseerrMediaUrl;
-    const currentJellyseerrUrl = getJellyseerrUrl();
-    if (tmdbId && currentJellyseerrUrl) {
-      const jellyseerrDomain = currentJellyseerrUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
-      const baseUrl = `${jellyseerrDomain}/${mediaType}/${tmdbId}`;
-      jellyseerrMediaUrl =
+    let seerrMediaUrl;
+    const currentSeerrUrl = getSeerrUrl();
+    if (tmdbId && currentSeerrUrl) {
+      const seerrDomain = currentSeerrUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
+      const baseUrl = `${seerrDomain}/${mediaType}/${tmdbId}`;
+      seerrMediaUrl =
         status === "success" ? `${baseUrl}?manage=1` : baseUrl;
     }
 
@@ -685,7 +718,7 @@ async function startBot() {
     const embed = new EmbedBuilder()
       .setAuthor({
         name: authorName,
-        url: isValidUrl(jellyseerrMediaUrl) ? jellyseerrMediaUrl : undefined,
+        url: isValidUrl(seerrMediaUrl) ? seerrMediaUrl : undefined,
       })
       .setTitle(titleWithYear)
       .setURL(imdbId ? `https://www.imdb.com/title/${imdbId}/` : undefined)
@@ -951,7 +984,7 @@ async function startBot() {
     if (mediaType === "movie" && !requested && selectedTags.length === 0) {
       // Note: Tags are fetched and added dynamically when building components
       // This is a placeholder row that will be populated by the calling code
-      // The actual tag options need to be fetched from Jellyseerr
+      // The actual tag options need to be fetched from Seerr
       // This is handled in the search/request handlers
     }
 
@@ -1009,13 +1042,13 @@ async function startBot() {
       );
 
       if (mode === "request") {
-        // Check if media already exists in Jellyseerr
-        const status = await jellyseerrApi.checkMediaStatus(
+        // Check if media already exists in Seerr
+        const status = await seerrApi.checkMediaStatus(
           tmdbId,
           mediaType,
           ["all"],
-          getJellyseerrUrl(),
-          getJellyseerrApiKey()
+          getSeerrUrl(),
+          getSeerrApiKey()
         );
 
         if (status.exists && status.available) {
@@ -1046,9 +1079,9 @@ async function startBot() {
         let tagIds = [];
         if (tags && tags.length > 0) {
           try {
-            const allTags = await jellyseerrApi.fetchTags(
-              getJellyseerrUrl(),
-              getJellyseerrApiKey()
+            const allTags = await seerrApi.fetchTags(
+              getSeerrUrl(),
+              getSeerrApiKey()
             );
             // Filter to appropriate type (Sonarr for TV, Radarr for movies)
             // Add defensive check to ensure allTags is an array
@@ -1094,20 +1127,20 @@ async function startBot() {
           }
         }
 
-        await jellyseerrApi.sendRequest({
+        await seerrApi.sendRequest({
           tmdbId,
           mediaType,
           seasons: seasonsToRequest,
           tags: tagIds,
           profileId,
           serverId,
-          jellyseerrUrl: getJellyseerrUrl(),
-          apiKey: getJellyseerrApiKey(),
+          seerrUrl: getSeerrUrl(),
+          apiKey: getSeerrApiKey(),
           discordUserId: interaction.user.id,
           userMappings: getUserMappings(),
-          isAutoApproved: getJellyseerrAutoApprove(),
+          isAutoApproved: getSeerrAutoApprove(),
         });
-        logger.info(`[REQUEST] Discord User ${interaction.user.id} requested ${mediaType} ${tmdbId}. Auto-Approve: ${getJellyseerrAutoApprove()}`);
+        logger.info(`[REQUEST] Discord User ${interaction.user.id} requested ${mediaType} ${tmdbId}. Auto-Approve: ${getSeerrAutoApprove()}`);
 
         // Track request for notifications if enabled
         if (process.env.NOTIFY_ON_AVAILABLE === "true") {
@@ -1116,6 +1149,7 @@ async function startBot() {
             pendingRequests.set(requestKey, new Set());
           }
           pendingRequests.get(requestKey).add(interaction.user.id);
+          savePendingRequests();
         }
       }
 
@@ -1147,9 +1181,9 @@ async function startBot() {
       // Add tag selector for movies (if in search mode and not already requested)
       if (mediaType === "movie" && mode === "search") {
         try {
-          const allTags = await jellyseerrApi.fetchTags(
-            getJellyseerrUrl(),
-            getJellyseerrApiKey()
+          const allTags = await seerrApi.fetchTags(
+            getSeerrUrl(),
+            getSeerrApiKey()
           );
 
           // Filter to only Radarr tags for movies
@@ -1202,7 +1236,7 @@ async function startBot() {
       // Extract a user-friendly error message if possible
       let errorMessage = "⚠️ An error occurred.";
       if (err.response && err.response.data && err.response.data.message) {
-        errorMessage = `⚠️ Jellyseerr error: ${err.response.data.message}`;
+        errorMessage = `⚠️ Seerr error: ${err.response.data.message}`;
       } else if (err.message) {
         // Special handling for quota errors or other common ones
         if (err.message.includes("403")) {
@@ -1321,9 +1355,9 @@ async function startBot() {
         // Handle Tag Autocomplete
         if (focusedOption.name === "tag") {
           try {
-            const allTags = await jellyseerrApi.fetchTags(
-              getJellyseerrUrl(),
-              getJellyseerrApiKey()
+            const allTags = await seerrApi.fetchTags(
+              getSeerrUrl(),
+              getSeerrApiKey()
             );
 
             // Filter tags based on user input
@@ -1385,9 +1419,9 @@ async function startBot() {
               }
             }
 
-            const allProfiles = await jellyseerrApi.fetchQualityProfiles(
-              getJellyseerrUrl(),
-              getJellyseerrApiKey()
+            const allProfiles = await seerrApi.fetchQualityProfiles(
+              getSeerrUrl(),
+              getSeerrApiKey()
             );
 
             // Filter profiles based on user input, media type, AND selected server
@@ -1448,9 +1482,9 @@ async function startBot() {
               mediaType = parts[1]; // "movie" or "tv"
             }
 
-            const allServers = await jellyseerrApi.fetchServers(
-              getJellyseerrUrl(),
-              getJellyseerrApiKey()
+            const allServers = await seerrApi.fetchServers(
+              getSeerrUrl(),
+              getSeerrApiKey()
             );
 
             // Filter servers based on input AND media type
@@ -1686,10 +1720,10 @@ async function startBot() {
       // Commands
       if (interaction.isCommand()) {
         // Check if the required configs for commands are present
-        if (!getJellyseerrUrl() || !getJellyseerrApiKey() || !getTmdbApiKey()) {
+        if (!getSeerrUrl() || !getSeerrApiKey() || !getTmdbApiKey()) {
           return interaction.reply({
             content:
-              "⚠️ This command is disabled because Jellyseerr or TMDB configuration is missing.",
+              "⚠️ This command is disabled because Seerr or TMDB configuration is missing.",
             flags: 64,
           });
         }
@@ -1745,9 +1779,9 @@ async function startBot() {
           let selectedTagIds = [];
           if (selectedTagNames.length > 0) {
             try {
-              const allTags = await jellyseerrApi.fetchTags(
-                getJellyseerrUrl(),
-                getJellyseerrApiKey()
+              const allTags = await seerrApi.fetchTags(
+                getSeerrUrl(),
+                getSeerrApiKey()
               );
 
               // Filter by type: Radarr for movies, Sonarr for TV
@@ -1772,7 +1806,7 @@ async function startBot() {
             }
           }
 
-          // Check if media already exists in Jellyseerr
+          // Check if media already exists in Seerr
           // For movies: use ["all"], for TV: use selected seasons or ["all"]
           const checkSeasons =
             mediaType === "movie"
@@ -1780,12 +1814,12 @@ async function startBot() {
               : selectedSeasons.length > 0
                 ? selectedSeasons
                 : ["all"];
-          const status = await jellyseerrApi.checkMediaStatus(
+          const status = await seerrApi.checkMediaStatus(
             tmdbId,
             mediaType,
             checkSeasons,
-            getJellyseerrUrl(),
-            getJellyseerrApiKey()
+            getSeerrUrl(),
+            getSeerrApiKey()
           );
 
           if (status.exists && status.available) {
@@ -1822,21 +1856,21 @@ async function startBot() {
           // Apply defaults from config
           const { profileId, serverId } = parseQualityAndServerOptions({}, mediaType);
 
-          await jellyseerrApi.sendRequest({
+          await seerrApi.sendRequest({
             tmdbId,
             mediaType,
             seasons: seasonsToRequest,
             tags: selectedTagIds.length > 0 ? selectedTagIds : undefined,
             profileId,
             serverId,
-            jellyseerrUrl: getJellyseerrUrl(),
-            apiKey: getJellyseerrApiKey(),
+            seerrUrl: getSeerrUrl(),
+            apiKey: getSeerrApiKey(),
             discordUserId: interaction.user.id,
             userMappings: getUserMappings(),
-            isAutoApproved: getJellyseerrAutoApprove(),
+            isAutoApproved: getSeerrAutoApprove(),
           });
-          logger.info(`[REQUEST] Discord User ${interaction.user.id} requested ${mediaType} ${tmdbId}. Auto-Approve: ${getJellyseerrAutoApprove()}`);
-          logger.info(`[REQUEST] Discord User ${interaction.user.id} requested ${mediaType} ${tmdbId}. Auto-Approve: ${getJellyseerrAutoApprove()}`);
+          logger.info(`[REQUEST] Discord User ${interaction.user.id} requested ${mediaType} ${tmdbId}. Auto-Approve: ${getSeerrAutoApprove()}`);
+          logger.info(`[REQUEST] Discord User ${interaction.user.id} requested ${mediaType} ${tmdbId}. Auto-Approve: ${getSeerrAutoApprove()}`);
 
           // Track request for notifications if enabled
           if (process.env.NOTIFY_ON_AVAILABLE === "true") {
@@ -1845,6 +1879,7 @@ async function startBot() {
               pendingRequests.set(requestKey, new Set());
             }
             pendingRequests.get(requestKey).add(interaction.user.id);
+            savePendingRequests();
           }
 
           const imdbId = await tmdbApi.tmdbGetExternalImdb(
@@ -2063,9 +2098,9 @@ async function startBot() {
           // Fetch available tags for tag selector (only if not already selected and not all seasons)
           if (selectedTags.length === 0 && !hasAllSeasons) {
             try {
-              const tags = await jellyseerrApi.fetchTags(
-                getJellyseerrUrl(),
-                getJellyseerrApiKey()
+              const tags = await seerrApi.fetchTags(
+                getSeerrUrl(),
+                getSeerrApiKey()
               );
 
               if (tags && tags.length > 0) {
@@ -2154,17 +2189,17 @@ async function startBot() {
 
           const { profileId, serverId } = parseQualityAndServerOptions({}, mediaType);
 
-          await jellyseerrApi.sendRequest({
+          await seerrApi.sendRequest({
             tmdbId,
             mediaType,
             seasons: mediaType === "tv" ? ["all"] : undefined,
             profileId,
             serverId,
-            jellyseerrUrl: getJellyseerrUrl(),
-            apiKey: getJellyseerrApiKey(),
+            seerrUrl: getSeerrUrl(),
+            apiKey: getSeerrApiKey(),
             discordUserId: interaction.user.id,
             userMappings: getUserMappings(),
-            isAutoApproved: getJellyseerrAutoApprove(),
+            isAutoApproved: getSeerrAutoApprove(),
           });
 
           // Track request for notifications
@@ -2174,6 +2209,7 @@ async function startBot() {
               pendingRequests.set(requestKey, new Set());
             }
             pendingRequests.get(requestKey).add(interaction.user.id);
+            savePendingRequests();
           }
 
           await interaction.followUp({
@@ -2233,9 +2269,9 @@ async function startBot() {
           let selectedTagNames = [];
           if (selectedTagIds.length > 0) {
             try {
-              const allTags = await jellyseerrApi.fetchTags(
-                getJellyseerrUrl(),
-                getJellyseerrApiKey()
+              const allTags = await seerrApi.fetchTags(
+                getSeerrUrl(),
+                getSeerrApiKey()
               );
 
               // Filter by type: Radarr for movies, Sonarr for TV
@@ -2684,81 +2720,81 @@ function configureWebServer() {
     }
   });
 
-  // Endpoint for Jellyseerr users
-  app.get("/api/jellyseerr-users", authenticateToken, async (req, res) => {
+  // Endpoint for Seerr users
+  app.get("/api/seerr-users", authenticateToken, async (req, res) => {
     try {
-      logger.debug("[JELLYSEERR USERS API] Request received");
-      const jellyseerrUrl = process.env.JELLYSEERR_URL;
-      const apiKey = process.env.JELLYSEERR_API_KEY;
+      logger.debug("[SEERR USERS API] Request received");
+      const seerrUrl = process.env.SEERR_URL;
+      const apiKey = process.env.SEERR_API_KEY;
 
-      logger.debug("[JELLYSEERR USERS API] JELLYSEERR_URL:", jellyseerrUrl);
-      logger.debug("[JELLYSEERR USERS API] API_KEY present:", !!apiKey);
+      logger.debug("[SEERR USERS API] SEERR_URL:", seerrUrl);
+      logger.debug("[SEERR USERS API] API_KEY present:", !!apiKey);
 
-      if (!jellyseerrUrl || !apiKey) {
-        logger.debug("[JELLYSEERR USERS API] Missing configuration");
+      if (!seerrUrl || !apiKey) {
+        logger.debug("[SEERR USERS API] Missing configuration");
         return res.json({
           success: false,
-          message: "Jellyseerr configuration missing",
+          message: "Seerr configuration missing",
         });
       }
 
-      let baseUrl = jellyseerrUrl.replace(/\/$/, "");
+      let baseUrl = seerrUrl.replace(/\/$/, "");
       if (!baseUrl.endsWith("/api/v1")) {
         baseUrl += "/api/v1";
       }
 
       logger.debug(
-        "[JELLYSEERR USERS API] Making request to:",
+        "[SEERR USERS API] Making request to:",
         `${baseUrl}/user`
       );
 
       let response;
       try {
         logger.info(
-          "[JELLYSEERR USERS API] Fetching users from Jellyseerr (real-time)..."
+          "[SEERR USERS API] Fetching users from Seerr (real-time)..."
         );
         response = await axios.get(`${baseUrl}/user?take=` + Number.MAX_SAFE_INTEGER, {
           headers: { "X-Api-Key": apiKey },
-          timeout: TIMEOUTS.JELLYSEERR_API,
+          timeout: TIMEOUTS.SEERR_API,
         });
 
         logger.info(
-          "[JELLYSEERR USERS API] ✅ Users fetched successfully (real-time)"
+          "[SEERR USERS API] ✅ Users fetched successfully (real-time)"
         );
       } catch (fetchErr) {
         logger.error(
-          "[JELLYSEERR USERS API] Failed to fetch users:",
+          "[SEERR USERS API] Failed to fetch users:",
           fetchErr.message
         );
         throw fetchErr;
       }
 
       logger.debug(
-        "[JELLYSEERR USERS API] Response received, status:",
+        "[SEERR USERS API] Response received, status:",
         response.status
       );
       logger.debug(
-        "[JELLYSEERR USERS API] Response data type:",
+        "[SEERR USERS API] Response data type:",
         typeof response.data
       );
       logger.debug(
-        "[JELLYSEERR USERS API] Response data is array:",
+        "[SEERR USERS API] Response data is array:",
         Array.isArray(response.data)
       );
       if (!Array.isArray(response.data)) {
         logger.debug(
-          "[JELLYSEERR USERS API] Response data keys:",
+          "[SEERR USERS API] Response data keys:",
           Object.keys(response.data)
         );
       }
       logger.debug(
-        "[JELLYSEERR USERS API] Response data length:",
+        "[SEERR USERS API] Response data length:",
         Array.isArray(response.data)
           ? response.data.length
           : response.data.results?.length || "N/A"
       );
 
-      // Jellyseerr API returns { pageInfo, results: [] }
+      // Seerr API returns { pageInfo, results: [] }
       const userData = response.data.results || [];
 
       const users = userData
@@ -2766,7 +2802,7 @@ function configureWebServer() {
           let avatar = user.avatar || null;
           // If avatar is relative, make it absolute
           if (avatar && !avatar.startsWith("http")) {
-            avatar = `${jellyseerrUrl.replace(/\/api\/v1$/, "")}${avatar}`;
+            avatar = `${seerrUrl.replace(/\/api\/v1$/, "")}${avatar}`;
           }
           return {
             id: user.id,
@@ -2781,18 +2817,18 @@ function configureWebServer() {
         ); // Sort alphabetically
 
       logger.info(
-        `[JELLYSEERR USERS API] ✅ Returning ${users.length} users (real-time)`
+        `[SEERR USERS API] ✅ Returning ${users.length} users (real-time)`
       );
       res.json({ success: true, users, fetchedRealtime: true });
     } catch (err) {
-      logger.error("[JELLYSEERR USERS API] Error:", err.message);
+      logger.error("[SEERR USERS API] Error:", err.message);
       if (err.response) {
         logger.error(
-          "[JELLYSEERR USERS API] Response status:",
+          "[SEERR USERS API] Response status:",
           err.response.status
         );
         logger.error(
-          "[JELLYSEERR USERS API] Response data:",
+          "[SEERR USERS API] Response data:",
           err.response.data
         );
       }
@@ -2814,26 +2850,26 @@ function configureWebServer() {
     (req, res) => {
       const {
         discordUserId,
-        jellyseerrUserId,
+        seerrUserId,
         discordUsername,
         discordDisplayName,
-        jellyseerrDisplayName,
+        seerrDisplayName,
       } = req.body;
 
-      if (!discordUserId || !jellyseerrUserId) {
+      if (!discordUserId || !seerrUserId) {
         return res.status(400).json({
           success: false,
-          message: "Discord user ID and Jellyseerr user ID are required.",
+          message: "Discord user ID and Seerr user ID are required.",
         });
       }
 
       try {
         const mapping = {
           discordUserId,
-          jellyseerrUserId,
+          seerrUserId,
           discordUsername: discordUsername || null,
           discordDisplayName: discordDisplayName || null,
-          jellyseerrDisplayName: jellyseerrDisplayName || null,
+          seerrDisplayName: seerrDisplayName || null,
         };
 
         // Use centralized saveUserMapping helper
@@ -2983,7 +3019,7 @@ function configureWebServer() {
   }
 
   // --- JELLYFIN WEBHOOK ENDPOINT ---
-  app.post("/jellyfin-webhook", webhookLimiter, verifyWebhookSecret, express.json(), async (req, res) => {
+  app.post("/jellyfin-webhook", webhookLimiter, verifyWebhookSecret, express.json({ type: "*/*" }), async (req, res) => {
     try {
       logger.info("📥 Received Jellyfin webhook");
       logger.debug("Webhook payload:", JSON.stringify(req.body, null, 2));
@@ -2991,17 +3027,22 @@ function configureWebServer() {
       // Acknowledge receipt immediately
       res.status(200).json({ success: true, message: "Webhook received" });
 
+      if (!req.body || Object.keys(req.body).length === 0) {
+        logger.warn("⚠️ Webhook body is empty — check that 'Send All Properties' is enabled in Jellyfin and the webhook is correctly configured");
+        return;
+      }
+
       // Process webhook asynchronously
       if (discordClient && isBotRunning) {
         // Don't pass res since we already responded
-        await handleJellyfinWebhook(req, null, discordClient, pendingRequests);
+        await handleJellyfinWebhook(req, null, discordClient, pendingRequests, savePendingRequests);
       } else {
         logger.warn(
-          "⚠️ Jellyfin webhook received but Discord bot is not running"
+          `⚠️ Jellyfin webhook received but Discord bot is not running — notification dropped (ItemType: ${req.body?.ItemType}, Name: ${req.body?.Name})`
         );
       }
     } catch (error) {
-      logger.error("❌ Error processing Jellyfin webhook:", error);
+      logger.error(`❌ Error processing Jellyfin webhook (ItemType: ${req.body?.ItemType}, Name: ${req.body?.Name}):`, error);
       // Don't send error response since we already sent 200
     }
   });
@@ -3025,8 +3066,7 @@ function configureWebServer() {
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
-    const config = readConfig();
-    res.json({ secret: config?.WEBHOOK_SECRET || null });
+    res.json({ secret: WEBHOOK_SECRET || null });
   });
 
   // Get available languages dynamically from locales directory
@@ -3081,12 +3121,12 @@ function configureWebServer() {
       const oldGuildId = process.env.GUILD_ID;
       const oldJellyfinApiKey = process.env.JELLYFIN_API_KEY;
 
-      // Normalize JELLYSEERR_URL to remove /api/v1 suffix if present
+      // Normalize SEERR_URL to remove /api/v1 suffix if present
       if (
-        configData.JELLYSEERR_URL &&
-        typeof configData.JELLYSEERR_URL === "string"
+        configData.SEERR_URL &&
+        typeof configData.SEERR_URL === "string"
       ) {
-        configData.JELLYSEERR_URL = configData.JELLYSEERR_URL.replace(
+        configData.SEERR_URL = configData.SEERR_URL.replace(
           /\/api\/v1\/?$/,
           ""
         );
@@ -3224,9 +3264,9 @@ function configureWebServer() {
     });
   });
 
-  app.post("/api/test-jellyseerr", authenticateToken, async (req, res) => {
+  app.post("/api/test-seerr", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
-    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.JELLYSEERR_API_KEY : apiKey;
+    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.SEERR_API_KEY : apiKey;
     if (!url || !effectiveApiKey) {
       return res
         .status(400)
@@ -3241,7 +3281,7 @@ function configureWebServer() {
 
       const response = await axios.get(`${baseUrl}/settings/about`, {
         headers: { "X-Api-Key": effectiveApiKey },
-        timeout: TIMEOUTS.JELLYSEERR_API,
+        timeout: TIMEOUTS.SEERR_API,
       });
       const version = response.data?.version;
       res.json({
@@ -3249,7 +3289,7 @@ function configureWebServer() {
         message: `Connection successful! (v${version})`,
       });
     } catch (error) {
-      logger.error("Jellyseerr test failed:", error.message);
+      logger.error("Seerr test failed:", error.message);
       // Check if the error is due to an invalid API key (401/403)
       if (error.response && [401, 403].includes(error.response.status)) {
         return res
@@ -3264,9 +3304,9 @@ function configureWebServer() {
   });
 
   // Fetch quality profiles
-  app.post("/api/jellyseerr/quality-profiles", authenticateToken, async (req, res) => {
+  app.post("/api/seerr/quality-profiles", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
-    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.JELLYSEERR_API_KEY : apiKey;
+    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.SEERR_API_KEY : apiKey;
     if (!url || !effectiveApiKey) {
       return res
         .status(400)
@@ -3279,7 +3319,7 @@ function configureWebServer() {
         baseUrl += "/api/v1";
       }
 
-      const profiles = await jellyseerrApi.fetchQualityProfiles(baseUrl, effectiveApiKey);
+      const profiles = await seerrApi.fetchQualityProfiles(baseUrl, effectiveApiKey);
       res.json({ success: true, profiles });
     } catch (error) {
       logger.error("Failed to fetch quality profiles:", error.message);
@@ -3291,9 +3331,9 @@ function configureWebServer() {
   });
 
   // Fetch servers
-  app.post("/api/jellyseerr/servers", authenticateToken, async (req, res) => {
+  app.post("/api/seerr/servers", authenticateToken, async (req, res) => {
     const { url, apiKey } = req.body;
-    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.JELLYSEERR_API_KEY : apiKey;
+    const effectiveApiKey = isMaskedValue(apiKey) ? process.env.SEERR_API_KEY : apiKey;
     if (!url || !effectiveApiKey) {
       return res
         .status(400)
@@ -3306,7 +3346,7 @@ function configureWebServer() {
         baseUrl += "/api/v1";
       }
 
-      const servers = await jellyseerrApi.fetchServers(baseUrl, effectiveApiKey);
+      const servers = await seerrApi.fetchServers(baseUrl, effectiveApiKey);
       res.json({ success: true, servers });
     } catch (error) {
       logger.error("Failed to fetch servers:", error.message);
@@ -3542,8 +3582,8 @@ function configureWebServer() {
         const fakeReq1 = { body: season1Data };
         const fakeReq2 = { body: season2Data };
 
-        await handleJellyfinWebhook(fakeReq1, null, discordClient, pendingRequests);
-        await handleJellyfinWebhook(fakeReq2, null, discordClient, pendingRequests);
+        await handleJellyfinWebhook(fakeReq1, null, discordClient, pendingRequests, savePendingRequests);
+        await handleJellyfinWebhook(fakeReq2, null, discordClient, pendingRequests, savePendingRequests);
 
         return res.json({
           success: true,
@@ -3585,7 +3625,7 @@ function configureWebServer() {
           };
 
           const fakeReq = { body: episodeData };
-          await handleJellyfinWebhook(fakeReq, null, discordClient, pendingRequests);
+          await handleJellyfinWebhook(fakeReq, null, discordClient, pendingRequests, savePendingRequests);
           // Small delay between episodes to simulate realistic webhook timing
           await new Promise(resolve => setTimeout(resolve, 50));
         }
@@ -3605,7 +3645,7 @@ function configureWebServer() {
       };
 
       // Send the test notification (pass null for res since we don't need response handling)
-      await handleJellyfinWebhook(fakeReq, null, discordClient, pendingRequests);
+      await handleJellyfinWebhook(fakeReq, null, discordClient, pendingRequests, savePendingRequests);
 
       res.json({
         success: true,

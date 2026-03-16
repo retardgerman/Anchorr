@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>A helpful Discord bot for requesting media via Jellyseerr and receiving Jellyfin notifications for new content in your library.</strong>
+  <strong>A helpful Discord bot for requesting media via Seerr and receiving Jellyfin notifications for new content in your library.</strong>
 </p>
 
 <p align="center">
@@ -33,14 +33,14 @@ I also have a dedicated channel on the [r/JellyfinCommunity](https://discord.gg/
 
 - **🔍 Media Search**: Search for movies and TV shows with `/search` command - you can then request it later within the message embed
 - **🔥 Trending Content**: Browse weekly trending movies and TV shows with `/trending` command
-- **📤 One-Click Requests**: Directly request media to Jellyseerr with `/request` command
+- **📤 One-Click Requests**: Directly request media to Seerr with `/request` command
 - **📺 Smart TV Handling**: Choose specific seasons when searching for TV series using `/search`, or request all seasons at once with `/request`
 - **🎚️ Server and Quality**: Choose which Radarr or Sonarr instance to request to, and which quality profile
-- **🚫 Duplicate Detection**: Automatically check if content already exists in Jellyseerr before allowing requests
+- **🚫 Duplicate Detection**: Automatically check if content already exists in Seerr before allowing requests
 - **🏷️ Tag Selection**: Select Radarr/Sonarr tags when requesting media for better organization and categorization
 - **📬 Jellyfin Notifications**: Automatic Discord notifications when new media is added to your library
 - **📚 Library Filtering and Mapping**: Choose which Jellyfin libraries send notifications and to which Discord channel
-- **👤 User Mapping**: Map Discord users to Jellyseerr accounts so requests appear from the correct user
+- **👤 User Mapping**: Map Discord users to Seerr accounts so requests appear from the correct user
 - **🔐 Role-Based Permissions**: Control which users can use bot commands via Discord roles (allowlist/blocklist)
 - **🔔 Private Notifications**: Optional PM when your requested content becomes available on Jellyfin
 - **👻 Ephemeral Mode**: Make bot responses visible only to the command user
@@ -74,7 +74,7 @@ If you choose to expose Anchorr to the internet (e.g. via port forwarding or a r
 Before getting started, ensure you have:
 
 - ✅ A running **Jellyfin** server
-- ✅ A running **Jellyseerr** instance
+- ✅ A running **Seerr** instance
 - ✅ A **Discord account** with a server where you have admin privileges
 - ✅ API keys from:
   - [The Movie Database (TMDB)](https://www.themoviedb.org/settings/api) - **Required**

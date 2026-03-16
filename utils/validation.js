@@ -11,8 +11,8 @@ export const configSchema = Joi.object({
   DISCORD_TOKEN: Joi.string().allow("").optional(),
   BOT_ID: Joi.string().allow("").optional(),
   GUILD_ID: Joi.string().allow("").optional(),
-  JELLYSEERR_URL: Joi.string().uri().allow("").optional(),
-  JELLYSEERR_API_KEY: Joi.string().allow("").optional(),
+  SEERR_URL: Joi.string().uri().allow("").optional(),
+  SEERR_API_KEY: Joi.string().allow("").optional(),
   TMDB_API_KEY: Joi.string().allow("").optional(),
   OMDB_API_KEY: Joi.string().allow("").optional(),
   JELLYFIN_BASE_URL: Joi.string().uri().allow("").optional(),
@@ -38,7 +38,7 @@ export const configSchema = Joi.object({
   AUTO_START_BOT: Joi.string().valid("true", "false").optional(),
   NOTIFY_ON_AVAILABLE: Joi.string().valid("true", "false").optional(),
   PRIVATE_MESSAGE_MODE: Joi.string().valid("true", "false").optional(),
-  JELLYSEERR_AUTO_APPROVE: Joi.string().valid("true", "false").optional(),
+  SEERR_AUTO_APPROVE: Joi.string().valid("true", "false").optional(),
   DEBUG: Joi.string().valid("true", "false").optional(),
   USER_MAPPINGS: Joi.array().items(Joi.object()).optional(),
   USER_MAPPING_METADATA: Joi.object().optional(),
@@ -48,17 +48,17 @@ export const configSchema = Joi.object({
 
 // --- USER MAPPING VALIDATION ---
 export const userMappingSchema = Joi.object({
-  discordUserId: Joi.string().required(),
-  jellyseerrUserId: Joi.string().required(),
+  discordUserId: Joi.string().pattern(/^\d{17,19}$/).required(),
+  seerrUserId: Joi.string().pattern(/^\d+$/).required(),
   discordUsername: Joi.string().allow(null, "").optional(),
-  jellyseerrUsername: Joi.string().allow(null, "").optional(),
+  seerrUsername: Joi.string().allow(null, "").optional(),
   discordDisplayName: Joi.string().allow(null, "").optional(),
   discordAvatar: Joi.string().allow(null, "").optional(),
-  jellyseerrDisplayName: Joi.string().allow(null, "").optional(),
+  seerrDisplayName: Joi.string().allow(null, "").optional(),
 });
 
-// --- JELLYSEERR REQUEST VALIDATION ---
-export const jellyseerrRequestSchema = Joi.object({
+// --- SEERR REQUEST VALIDATION ---
+export const seerrRequestSchema = Joi.object({
   mediaType: Joi.string().valid("movie", "tv").required(),
   mediaId: Joi.number().integer().positive().required(),
   seasons: Joi.alternatives(

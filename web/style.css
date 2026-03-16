@@ -1860,7 +1860,7 @@ input:checked + .slider:before {
   white-space: nowrap;
 }
 
-#test-jellyseerr-btn,
+#test-seerr-btn,
 #test-jellyfin-btn {
   margin-left: 0;
   margin-right: 0;

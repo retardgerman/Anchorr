@@ -18,7 +18,7 @@ services:
     # For non-root: uncomment below, manually create ./anchorr-data, and set to your user/group ID
     # user: "1000:1000"
     labels:
-      - "com.example.description=Discord bot for Jellyfin media requests via Jellyseerr"
+      - "com.example.description=Discord bot for Jellyfin media requests via Seerr"
       - "com.example.version=1.2.0"
       - "org.opencontainers.image.title=Anchorr"
       - "org.opencontainers.image.description=Discord bot for requesting media and Jellyfin notifications"

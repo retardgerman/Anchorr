@@ -111,8 +111,8 @@ logger.tmdb = (action, message) => {
   logger.debug(`[TMDB] ${action}: ${message}`);
 };
 
-logger.jellyseerr = (action, message) => {
-  logger.debug(`[Jellyseerr] ${action}: ${message}`);
+logger.seerr = (action, message) => {
+  logger.debug(`[Seerr] ${action}: ${message}`);
 };
 
 logger.jellyfin = (action, message) => {
