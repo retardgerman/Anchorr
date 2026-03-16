@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.3] - 2026-03-16
 
-### ℹ️ Important
-
-- **Seerr rebrand — config key rename**: All `JELLYSEERR_*` config keys have been renamed to `SEERR_*` (`SEERR_URL`, `SEERR_API_KEY`, `SEERR_AUTO_APPROVE`). User mapping keys `jellyseerr{UserId,Username,DisplayName}` are renamed to `seerr{UserId,Username,DisplayName}`. **Auto-migration runs silently on first boot** — existing `config.json` files are upgraded automatically. No manual action required unless you have hardcoded `JELLYSEERR_*` environment variables outside of `config.json`.
-
 ### 🔒 Security
 
 - **Login brute-force protection** (ref [#80](../../issues/80)): Account locked for 10 minutes after 5 consecutive failed login attempts per username (HTTP 429 with seconds remaining). Progressive 300ms-per-attempt response delay (capped at 4 s) slows automated tools. bcrypt always runs even for unknown usernames to prevent user enumeration via timing. Existing IP-based rate limit (20 req / 15 min) remains as a first layer
@@ -26,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Improvements
 
+- **Seerr rebrand**: All `JELLYSEERR_*` config keys renamed to `SEERR_*`. Existing `config.json` is migrated automatically on first boot. If you have `JELLYSEERR_*` set as environment variables outside of `config.json`, rename them manually
 - **Pending DM requests survive restarts**: `pendingRequests` is persisted to `pending-requests.json` (next to `config.json`, mode 0600) on every write and loaded on bot startup — users who requested media via `/request` now receive their DM notification even if the bot was restarted before the media became available
 - **Webhook secret visible on page load**: The webhook secret field in the dashboard is now populated automatically on load so the value is immediately visible and copyable without digging through the config
 - **Better webhook error logs**: Errors and warnings in the webhook handler now include `ItemType` and `Name` for easier debugging without parsing the raw payload
