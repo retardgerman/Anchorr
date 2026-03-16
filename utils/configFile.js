@@ -6,7 +6,7 @@ import { configSchema } from "./validation.js";
 // Fields that contain sensitive credentials and should be base64-encoded at rest
 const SENSITIVE_FIELDS = new Set([
   "DISCORD_TOKEN",
-  "JELLYSEERR_API_KEY",
+  "SEERR_API_KEY",
   "JELLYFIN_API_KEY",
   "WEBHOOK_SECRET",
   "JWT_SECRET",
@@ -258,13 +258,13 @@ export function loadConfigToEnv() {
 
   // --- AUTO-MIGRATIONS ---
 
-  // 1. Normalize JELLYSEERR_URL (remove /api/v1 suffix)
-  if (config.JELLYSEERR_URL && typeof config.JELLYSEERR_URL === "string") {
-    const originalUrl = config.JELLYSEERR_URL;
-    config.JELLYSEERR_URL = config.JELLYSEERR_URL.replace(/\/api\/v1\/?$/, "");
-    if (originalUrl !== config.JELLYSEERR_URL) {
+  // 1. Normalize SEERR_URL (remove /api/v1 suffix)
+  if (config.SEERR_URL && typeof config.SEERR_URL === "string") {
+    const originalUrl = config.SEERR_URL;
+    config.SEERR_URL = config.SEERR_URL.replace(/\/api\/v1\/?$/, "");
+    if (originalUrl !== config.SEERR_URL) {
       logger.debug(
-        `Normalized JELLYSEERR_URL: ${originalUrl} → ${config.JELLYSEERR_URL}`
+        `Normalized SEERR_URL: ${originalUrl} → ${config.SEERR_URL}`
       );
     }
   }
@@ -292,6 +292,56 @@ export function loadConfigToEnv() {
       );
     } else {
       logger.error("Failed to save migrated config");
+    }
+  }
+
+  // 3. Migrate old JELLYSEERR_* keys to SEERR_*
+  const seerrKeyMap = {
+    JELLYSEERR_URL: "SEERR_URL",
+    JELLYSEERR_API_KEY: "SEERR_API_KEY",
+    JELLYSEERR_AUTO_APPROVE: "SEERR_AUTO_APPROVE",
+  };
+  let seerrKeysMigrated = false;
+  for (const [oldKey, newKey] of Object.entries(seerrKeyMap)) {
+    if (config[oldKey] !== undefined && config[newKey] === undefined) {
+      config[newKey] = config[oldKey];
+      delete config[oldKey];
+      seerrKeysMigrated = true;
+      logger.info(`🔄 Migrated config key: ${oldKey} → ${newKey}`);
+    }
+  }
+
+  // 4. Migrate USER_MAPPINGS jellyseerr* keys to seerr*
+  const mappingKeyMap = {
+    jellyseerrUserId: "seerrUserId",
+    jellyseerrUsername: "seerrUsername",
+    jellyseerrDisplayName: "seerrDisplayName",
+  };
+  const rawMappings = config.USER_MAPPINGS;
+  const mappings = typeof rawMappings === "string" ? JSON.parse(rawMappings) : rawMappings;
+  if (mappings && typeof mappings === "object") {
+    let mappingsMigrated = false;
+    for (const mapping of Object.values(mappings)) {
+      for (const [oldKey, newKey] of Object.entries(mappingKeyMap)) {
+        if (mapping[oldKey] !== undefined && mapping[newKey] === undefined) {
+          mapping[newKey] = mapping[oldKey];
+          delete mapping[oldKey];
+          mappingsMigrated = true;
+        }
+      }
+    }
+    if (mappingsMigrated) {
+      config.USER_MAPPINGS = mappings;
+      seerrKeysMigrated = true;
+      logger.info("🔄 Migrated USER_MAPPINGS: jellyseerr* keys → seerr*");
+    }
+  }
+
+  if (seerrKeysMigrated) {
+    if (writeConfig(config)) {
+      logger.info("✅ Seerr key migration saved to config.json");
+    } else {
+      logger.error("❌ Failed to save Seerr key migration");
     }
   }
 
@@ -363,7 +413,7 @@ export function getUserMappings() {
 
 /**
  * Save or update a user mapping
- * @param {Object} mapping - Mapping object with discordUserId, jellyseerrUserId, etc.
+ * @param {Object} mapping - Mapping object with discordUserId, seerrUserId, etc.
  * @returns {Object} The saved mapping object
  * @throws {Error} If save fails
  */
@@ -435,21 +485,21 @@ export function deleteUserMapping(discordUserId) {
 }
 
 /**
- * Helper to normalize Jellyseerr URL (removes /api/v1 suffix)
- * @param {string} url - Jellyseerr URL
+ * Helper to normalize Seerr URL (removes /api/v1 suffix)
+ * @param {string} url - Seerr URL
  * @returns {string} Normalized URL
  */
-export function normalizeJellyseerrUrl(url) {
+export function normalizeSeerrUrl(url) {
   if (!url) return "";
   return url.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
 }
 
 /**
- * Helper to get full Jellyseerr API URL (with /api/v1)
- * @param {string} url - Jellyseerr base URL
+ * Helper to get full Seerr API URL (with /api/v1)
+ * @param {string} url - Seerr base URL
  * @returns {string} Full API URL
  */
-export function getJellyseerrApiUrl(url) {
-  const base = normalizeJellyseerrUrl(url);
+export function getSeerrApiUrl(url) {
+  const base = normalizeSeerrUrl(url);
   return base ? `${base}/api/v1` : "";
 }

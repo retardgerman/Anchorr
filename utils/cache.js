@@ -16,9 +16,9 @@ class APICache {
       useClones: false, // Don't clone objects (better performance)
     });
 
-    // Jellyseerr cache - 1 minute TTL
-    this.jellyseerrCache = new NodeCache({
-      stdTTL: CACHE_TTL.JELLYSEERR_STATUS / 1000,
+    // Seerr cache - 1 minute TTL
+    this.seerrCache = new NodeCache({
+      stdTTL: CACHE_TTL.SEERR_STATUS / 1000,
       checkperiod: 30,
       useClones: false,
     });
@@ -27,8 +27,8 @@ class APICache {
     this.stats = {
       tmdbHits: 0,
       tmdbMisses: 0,
-      jellyseerrHits: 0,
-      jellyseerrMisses: 0,
+      seerrHits: 0,
+      seerrMisses: 0,
     };
   }
 
@@ -112,22 +112,22 @@ class APICache {
     }
   }
 
-  // Jellyseerr Request Status Cache
-  jellyseerrStatus(tmdbId, mediaType, status) {
+  // Seerr Request Status Cache
+  seerrStatus(tmdbId, mediaType, status) {
     const key = `status:${mediaType}:${tmdbId}`;
 
     if (status === undefined) {
       // GET
-      const cached = this.jellyseerrCache.get(key);
+      const cached = this.seerrCache.get(key);
       if (cached) {
-        this.stats.jellyseerrHits++;
+        this.stats.seerrHits++;
         return cached;
       }
-      this.stats.jellyseerrMisses++;
+      this.stats.seerrMisses++;
       return null;
     } else {
       // SET
-      this.jellyseerrCache.set(key, status);
+      this.seerrCache.set(key, status);
       return status;
     }
   }
@@ -138,25 +138,25 @@ class APICache {
     logger.info("TMDB cache cleared");
   }
 
-  clearJellyseerr() {
-    this.jellyseerrCache.flushAll();
-    logger.info("Jellyseerr cache cleared");
+  clearSeerr() {
+    this.seerrCache.flushAll();
+    logger.info("Seerr cache cleared");
   }
 
   // Clear all caches
   clearAll() {
     this.tmdbCache.flushAll();
-    this.jellyseerrCache.flushAll();
+    this.seerrCache.flushAll();
     logger.info("All caches cleared");
   }
 
   // Get cache statistics
   getStats() {
     const tmdbKeys = this.tmdbCache.keys().length;
-    const jellyseerrKeys = this.jellyseerrCache.keys().length;
+    const seerrKeys = this.seerrCache.keys().length;
     const tmdbTotal = this.stats.tmdbHits + this.stats.tmdbMisses;
-    const jellyseerrTotal =
-      this.stats.jellyseerrHits + this.stats.jellyseerrMisses;
+    const seerrTotal =
+      this.stats.seerrHits + this.stats.seerrMisses;
 
     return {
       tmdb: {
@@ -168,13 +168,13 @@ class APICache {
             ? ((this.stats.tmdbHits / tmdbTotal) * 100).toFixed(2) + "%"
             : "0%",
       },
-      jellyseerr: {
-        keys: jellyseerrKeys,
-        hits: this.stats.jellyseerrHits,
-        misses: this.stats.jellyseerrMisses,
+      seerr: {
+        keys: seerrKeys,
+        hits: this.stats.seerrHits,
+        misses: this.stats.seerrMisses,
         hitRate:
-          jellyseerrTotal > 0
-            ? ((this.stats.jellyseerrHits / jellyseerrTotal) * 100).toFixed(2) +
+          seerrTotal > 0
+            ? ((this.stats.seerrHits / seerrTotal) * 100).toFixed(2) +
               "%"
             : "0%",
       },

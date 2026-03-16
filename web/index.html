@@ -75,7 +75,7 @@
                 <h1 class="hero-title" data-i18n="dashboard.title">Anchorr Configuration</h1>
                 <p class="hero-subtitle">
                   <span data-i18n="dashboard.subtitle">Anchorr needs to be connect with your Discord bot and with your
-                  Jellyfin and Jellyseerr instances.</span>
+                  Jellyfin and Seerr instances.</span>
                   <br />
                   <span data-i18n="dashboard.subtitle_detail">Below is a step-by-step walkthrough to help you set up
                   everything you need to get started!</span>
@@ -159,7 +159,7 @@
               <div class="dashboard-sidebar">
                 <nav class="dashboard-nav">
                   <a href="#" class="nav-item active" data-target="discord" data-i18n="config.nav_discord">1. Discord</a>
-                  <a href="#" class="nav-item" data-target="jellyseerr" data-i18n="config.nav_jellyseerr">2. Jellyseerr</a>
+                  <a href="#" class="nav-item" data-target="seerr" data-i18n="config.nav_seerr">2. Seerr</a>
                   <a href="#" class="nav-item" data-target="media" data-i18n="config.nav_media">3. Media Databases</a>
                   <a href="#" class="nav-item" data-target="jellyfin" data-i18n="config.nav_jellyfin">4. Jellyfin Notifications</a>
                   <a href="#" class="nav-item" data-target="mappings" data-i18n="config.nav_mappings">5. User Mapping</a>
@@ -290,40 +290,40 @@
                     </fieldset>
                   </div>
 
-                  <!-- Jellyseerr Pane -->
-                  <div id="config-pane-jellyseerr" class="config-pane">
+                  <!-- Seerr Pane -->
+                  <div id="config-pane-seerr" class="config-pane">
                     <fieldset>
-                      <legend data-i18n="config.jellyseerr_section">Jellyseerr Settings</legend>
+                      <legend data-i18n="config.seerr_section">Seerr Settings</legend>
                       <div class="form-group">
-                        <label for="JELLYSEERR_URL" data-i18n="config.jellyseerr_url">Jellyseerr URL</label>
+                        <label for="SEERR_URL" data-i18n="config.seerr_url">Seerr URL</label>
                         <input
                           type="text"
-                          id="JELLYSEERR_URL"
-                          name="JELLYSEERR_URL"
+                          id="SEERR_URL"
+                          name="SEERR_URL"
                           placeholder="http://localhost:5055"
                         />
-                        <div class="form-text" data-i18n="config.jellyseerr_url_help">
-                          The full URL of your Jellyseerr instance.
+                        <div class="form-text" data-i18n="config.seerr_url_help">
+                          The full URL of your Seerr instance.
                         </div>
                       </div>
                       <div class="form-group">
-                        <label for="JELLYSEERR_API_KEY" data-i18n="config.jellyseerr_api_key"
-                          >Jellyseerr API Key</label
+                        <label for="SEERR_API_KEY" data-i18n="config.seerr_api_key"
+                          >Seerr API Key</label
                         >
                         <input
                           type="password"
-                          id="JELLYSEERR_API_KEY"
-                          name="JELLYSEERR_API_KEY"
+                          id="SEERR_API_KEY"
+                          name="SEERR_API_KEY"
                           placeholder="MTc2MjA6************************PljQTg6YpQ5Yzg2Nw=="
                         />
-                        <div class="form-text" data-i18n="config.jellyseerr_api_key_help">
-                          Your API key from Jellyseerr settings
+                        <div class="form-text" data-i18n="config.seerr_api_key_help">
+                          Your API key from Seerr settings
                         </div>
                       </div>
                       <div class="form-group">
-                        <button type="button" id="test-jellyseerr-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;" data-i18n="config.test_connection">Test Connection</button>
+                        <button type="button" id="test-seerr-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;" data-i18n="config.test_connection">Test Connection</button>
                         <span
-                          id="test-jellyseerr-status"
+                          id="test-seerr-status"
                           style="margin-left: 1rem;"
                         ></span>
                       </div>
@@ -338,10 +338,10 @@
                         </div>
                         
                         <div class="form-group">
-                          <button type="button" id="load-jellyseerr-options-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem; margin: 0;" data-i18n="config.load_profiles_servers">
+                          <button type="button" id="load-seerr-options-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem; margin: 0;" data-i18n="config.load_profiles_servers">
                             Load Profiles & Servers
                           </button>
-                          <span id="load-jellyseerr-options-status" style="margin-left: 1rem;"></span>
+                          <span id="load-seerr-options-status" style="margin-left: 1rem;"></span>
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem;">
@@ -349,7 +349,7 @@
                           <div class="form-group">
                             <label for="DEFAULT_QUALITY_PROFILE_MOVIE" style="display: block; margin-bottom: 0.5rem; font-weight: 600;" data-i18n="config.default_movie_quality">🎬 Default Movie Quality</label>
                             <select id="DEFAULT_QUALITY_PROFILE_MOVIE" name="DEFAULT_QUALITY_PROFILE_MOVIE" style="width: 100%; background-color: #1e1e2e; border: 1px solid var(--surface1); color: var(--text); padding: 0.75rem; border-radius: 8px; font-size: 1rem;">
-                              <option value="" data-i18n="config.use_jellyseerr_default">Use Jellyseerr default</option>
+                              <option value="" data-i18n="config.use_seerr_default">Use Seerr default</option>
                             </select>
                             <div class="form-text" style="margin-top: 0.25rem;" data-i18n="config.default_movie_quality_help">
                               Quality profile for movie requests (Radarr)
@@ -360,7 +360,7 @@
                           <div class="form-group">
                             <label for="DEFAULT_QUALITY_PROFILE_TV" style="display: block; margin-bottom: 0.5rem; font-weight: 600;" data-i18n="config.default_tv_quality">📺 Default TV Quality</label>
                             <select id="DEFAULT_QUALITY_PROFILE_TV" name="DEFAULT_QUALITY_PROFILE_TV" style="width: 100%; background-color: #1e1e2e; border: 1px solid var(--surface1); color: var(--text); padding: 0.75rem; border-radius: 8px; font-size: 1rem;">
-                              <option value="" data-i18n="config.use_jellyseerr_default">Use Jellyseerr default</option>
+                              <option value="" data-i18n="config.use_seerr_default">Use Seerr default</option>
                             </select>
                             <div class="form-text" style="margin-top: 0.25rem;" data-i18n="config.default_tv_quality_help">
                               Quality profile for TV show requests (Sonarr)
@@ -371,7 +371,7 @@
                           <div class="form-group">
                             <label for="DEFAULT_SERVER_MOVIE" style="display: block; margin-bottom: 0.5rem; font-weight: 600;" data-i18n="config.default_movie_server">🎬 Default Movie Server</label>
                             <select id="DEFAULT_SERVER_MOVIE" name="DEFAULT_SERVER_MOVIE" style="width: 100%; background-color: #1e1e2e; border: 1px solid var(--surface1); color: var(--text); padding: 0.75rem; border-radius: 8px; font-size: 1rem;">
-                              <option value="" data-i18n="config.use_jellyseerr_default">Use Jellyseerr default</option>
+                              <option value="" data-i18n="config.use_seerr_default">Use Seerr default</option>
                             </select>
                             <div class="form-text" style="margin-top: 0.25rem;" data-i18n="config.default_movie_server_help">
                               Radarr server for movie requests
@@ -382,7 +382,7 @@
                           <div class="form-group">
                             <label for="DEFAULT_SERVER_TV" style="display: block; margin-bottom: 0.5rem; font-weight: 600;" data-i18n="config.default_tv_server">📺 Default TV Server</label>
                             <select id="DEFAULT_SERVER_TV" name="DEFAULT_SERVER_TV" style="width: 100%; background-color: #1e1e2e; border: 1px solid var(--surface1); color: var(--text); padding: 0.75rem; border-radius: 8px; font-size: 1rem;">
-                              <option value="" data-i18n="config.use_jellyseerr_default">Use Jellyseerr default</option>
+                              <option value="" data-i18n="config.use_seerr_default">Use Seerr default</option>
                             </select>
                             <div class="form-text" style="margin-top: 0.25rem;" data-i18n="config.default_tv_server_help">
                               Sonarr server for TV show requests
@@ -797,7 +797,7 @@
                     <fieldset>
                       <legend>User Mapping</legend>
                       <p class="form-text" style="margin-bottom: 1.5rem;">
-                        Map Discord users to their Jellyseerr accounts. When a user makes a request from Discord, it will be associated with their Jellyseerr account instead of the API key owner.
+                        Map Discord users to their Seerr accounts. When a user makes a request from Discord, it will be associated with their Seerr account instead of the API key owner.
                       </p>
                       
                       <div id="mappings-container">
@@ -831,10 +831,10 @@
                           </div>
                           <div class="form-group">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                              <label for="jellyseerr-user-select" style="margin-bottom: 0;">Jellyseerr User</label>
+                              <label for="seerr-user-select" style="margin-bottom: 0;">Seerr User</label>
                             </div>
-                            <div class="custom-select" id="jellyseerr-user-select">
-                              <input type="text" class="custom-select-trigger" placeholder="Search Jellyseerr users..." readonly />
+                            <div class="custom-select" id="seerr-user-select">
+                              <input type="text" class="custom-select-trigger" placeholder="Search Seerr users..." readonly />
                               <i class="bi bi-chevron-down custom-select-chevron"></i>
                               <div class="custom-select-dropdown">
                                 <div class="custom-select-options">
@@ -843,7 +843,7 @@
                               </div>
                             </div>
                             <div class="form-text">
-                              Select the corresponding Jellyseerr account
+                              Select the corresponding Seerr account
                             </div>
                           </div>
                           <button type="button" id="add-mapping-btn" class="btn btn-primary" style="margin-left: 0;">Add Mapping</button>
@@ -922,11 +922,11 @@
 
                       <div class="form-group" style="margin-top: 1.5rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                          <input type="checkbox" id="JELLYSEERR_AUTO_APPROVE" name="JELLYSEERR_AUTO_APPROVE" />
-                          Jellyseerr Auto-Approve Requests
+                          <input type="checkbox" id="SEERR_AUTO_APPROVE" name="SEERR_AUTO_APPROVE" />
+                          Seerr Auto-Approve Requests
                         </label>
                         <div class="form-text">
-                          When enabled, requests made through the bot will be automatically approved in Jellyseerr. If disabled, requests will remain "Pending" for manual approval.
+                          When enabled, requests made through the bot will be automatically approved in Seerr. If disabled, requests will remain "Pending" for manual approval.
                         </div>
                       </div>
 
@@ -1059,17 +1059,17 @@
             <div class="about-content">
               <h2 data-i18n="about.title">About Anchorr</h2>
               <p class="about-description" data-i18n="about.description">
-                <strong class="anchor-highlight">Anchorr</strong> is a self-hosted, lightweight bridge that connects your <strong style="color: var(--blue);">Jellyfin</strong> media server with <strong style="color: var(--blue);">Discord</strong>. It notifies you on a dedicated channel when new media is added to your library, and with <strong style="color: var(--blue);">Jellyseerr</strong> integration, you can search and request movies and shows directly from Discord.
+                <strong class="anchor-highlight">Anchorr</strong> is a self-hosted, lightweight bridge that connects your <strong style="color: var(--blue);">Jellyfin</strong> media server with <strong style="color: var(--blue);">Discord</strong>. It notifies you on a dedicated channel when new media is added to your library, and with <strong style="color: var(--blue);">Seerr</strong> integration, you can search and request movies and shows directly from Discord.
               </p>
 
               <div class="features-list">
                 <h3 class="features-title" data-i18n="about.features_title">Features</h3>
                 <ul>
                   <li><i class="bi bi-search"></i><div data-i18n="about.feature_search"><code>/search &lt;title&gt;</code> Search for a movie or show with auto-suggestions. An embed with detailed information is shown, from which you can request the media. For <strong style="color: var(--blue);">TV shows</strong>, you have the option to select the desired seasons for the request.</div></li>
-                  <li><i class="bi bi-send-fill"></i><div data-i18n="about.feature_request"><code>/request &lt;title&gt;</code> Instantly send a request for your chosen movie or show directly to <strong style="color: var(--blue);">Jellyseerr</strong>. For <strong style="color: var(--blue);">TV shows</strong>, this automatically requests all seasons.</div></li>
+                  <li><i class="bi bi-send-fill"></i><div data-i18n="about.feature_request"><code>/request &lt;title&gt;</code> Instantly send a request for your chosen movie or show directly to <strong style="color: var(--blue);">Seerr</strong>. For <strong style="color: var(--blue);">TV shows</strong>, this automatically requests all seasons.</div></li>
                   <li><i class="bi bi-bell-fill"></i><div data-i18n="about.feature_notifications">Receive beautifully formatted notifications on your selected <strong style="color: var(--blue);">Discord</strong> channel whenever new media is added to your <strong style="color: var(--blue);">Jellyfin</strong> library.</div></li>
                   <li><i class="bi bi-film"></i><div data-i18n="about.feature_databases">Using the <strong style="color: var(--blue);">TMDB</strong> and <strong style="color: var(--blue);">OMDb</strong> databases, <strong style="color: var(--blue);">Discord</strong> messages get a beautiful and well-structured look, with essential information about the requested or added media content.</div></li>
-                  <li><i class="bi bi-sliders"></i><div data-i18n="about.feature_permissions">Control permissions with <strong style="color: var(--blue);">role-based access</strong> (allowlist/blocklist), route notifications to different channels by <strong style="color: var(--blue);">Jellyfin library</strong>, and link users to <strong style="color: var(--blue);">Jellyseerr</strong> accounts for accurate request tracking.</div></li>
+                  <li><i class="bi bi-sliders"></i><div data-i18n="about.feature_permissions">Control permissions with <strong style="color: var(--blue);">role-based access</strong> (allowlist/blocklist), route notifications to different channels by <strong style="color: var(--blue);">Jellyfin library</strong>, and link users to <strong style="color: var(--blue);">Seerr</strong> accounts for accurate request tracking.</div></li>
                   <li><i class="bi bi-chat-left-dots"></i><div data-i18n="about.feature_direct_messages">Get <strong style="color: var(--blue);">direct messages</strong> on <strong style="color: var(--blue);">Discord</strong> when requested content becomes available in your library. Never miss when your requests are ready!</div></li>
                 </ul>
               </div>
@@ -1138,8 +1138,8 @@
               <!-- Status Indicators -->
               <div class="status-indicator-container">
                 <div class="status-indicator-item">
-                  <div id="jellyseerr-status-indicator" class="status-dot"></div>
-                  <span>Jellyseerr</span>
+                  <div id="seerr-status-indicator" class="status-dot"></div>
+                  <span>Seerr</span>
                 </div>
                 <div class="status-indicator-item">
                   <div id="jellyfin-status-indicator" class="status-dot"></div>

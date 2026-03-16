@@ -16,8 +16,8 @@ This release addresses two stored XSS vulnerabilities reported by [@xdnewlun1](h
 **GHSA-qpmq-6wjc-w28q — Stored XSS via Discord member display names** (reported by [@xdnewlun1](https://github.com/xdnewlun1))
 The Discord member dropdown was built using `innerHTML` with unsanitized display names fetched from the Discord API. A Discord user whose display name contained HTML or JavaScript could inject scripts that executed in the dashboard context, targeting any admin viewing the user-mapping page.
 
-**GHSA-6mg4-788h-7g9g — Stored XSS via Jellyseerr usernames** (reported by [@Rex50527](https://github.com/Rex50527))
-Jellyseerr usernames retrieved from the API were injected into the dashboard via `innerHTML` without sanitization. A Jellyseerr account with a crafted username could inject scripts that executed when an admin loaded the user-mapping page.
+**GHSA-6mg4-788h-7g9g — Stored XSS via Seerr usernames** (reported by [@Rex50527](https://github.com/Rex50527))
+Seerr usernames retrieved from the API were injected into the dashboard via `innerHTML` without sanitization. A Seerr account with a crafted username could inject scripts that executed when an admin loaded the user-mapping page.
 
 - **DOM API rewrite for member dropdown**: The Discord member selector now builds list items using `createElement` / `textContent` instead of `innerHTML`. Display names and avatar URLs are treated as data, not markup
 - **Avatar URL validation**: Avatar URLs are validated against a strict pattern (`cdn.discordapp.com`) before being set as `img.src`, preventing javascript: URI injection via crafted avatar payloads
@@ -51,7 +51,7 @@ Anchorr's `/jellyfin-webhook` endpoint accepted arbitrary POST requests without 
 - **Timing-Safe Secret Comparison**: Webhook secret verification uses `crypto.timingSafeEqual` to prevent timing-based secret extraction attacks
 - **URL Injection Prevention**: `buildJellyfinUrl` now always uses the configured `JELLYFIN_BASE_URL` instead of the webhook-provided `ServerUrl`, preventing URL injection via poisoned Jellyfin metadata
 - **Removed Credential Debug Logs**: Debug statements that logged a prefix of the Discord token to disk have been removed
-- **Base64-Encoded Secrets at Rest**: Sensitive fields (`DISCORD_TOKEN`, `JWT_SECRET`, `WEBHOOK_SECRET`, `JELLYSEERR_API_KEY`, `JELLYFIN_API_KEY`, `TMDB_API_KEY`, `OMDB_API_KEY`) are now stored base64-encoded in `config.json`. Values are decoded transparently on read and re-encoded on every save. Existing plain-text configs are migrated automatically on next save
+- **Base64-Encoded Secrets at Rest**: Sensitive fields (`DISCORD_TOKEN`, `JWT_SECRET`, `WEBHOOK_SECRET`, `SEERR_API_KEY`, `JELLYFIN_API_KEY`, `TMDB_API_KEY`, `OMDB_API_KEY`) are now stored base64-encoded in `config.json`. Values are decoded transparently on read and re-encoded on every save. Existing plain-text configs are migrated automatically on next save
 
 ### 🏗️ Code Quality
 
@@ -80,12 +80,12 @@ If upgrading from v1.4.0:
 
 - **Multi-Season Selection UI**: Enhanced season selection for TV shows with more than 25 seasons by implementing multiple cascading select menus, overcoming Discord's 25-option limit per select menu. Users can now seamlessly select seasons from shows with extensive episode lists (e.g., One Piece, Pokémon)
 - **Discord Threads Support**: Added support for mapping Discord threads as notification channels. You can now send Jellyfin notifications to specific threads in addition to regular text channels, providing better organization for different content types or libraries
-- **Auto-Approve Requests**: Implemented auto-approve functionality for media requests. When enabled, requests made through the bot are automatically approved in Jellyseerr without requiring manual approval, streamlining the content acquisition workflow
+- **Auto-Approve Requests**: Implemented auto-approve functionality for media requests. When enabled, requests made through the bot are automatically approved in Seerr without requiring manual approval, streamlining the content acquisition workflow
 - **Daily Pick Recommendations**: New daily recommendation feature that sends a curated movie or TV show suggestion to your Discord channel. Users receive fresh content recommendations each day to discover new media to watch
 - **Quality Profile Selection**: Added quality profile selection in the `/request` command with intelligent autocomplete support. Users can now specify their preferred quality profile (e.g., "1080p", "4K", "Anime") directly when requesting content
 - **Server Selection for Requests**: Implemented server selection functionality allowing users to choose specific Radarr or Sonarr servers when making media requests, providing better control over where content is downloaded
-- **Default Quality Profiles Configuration**: New UI section in Jellyseerr settings for configuring default quality profiles and servers separately for movies (Radarr) and TV shows (Sonarr). These defaults are used when users don't specify a profile in their request
-- **Load Profiles & Servers Button**: Added convenient "Load Profiles & Servers" button in Jellyseerr settings that fetches and populates all available quality profiles and servers from your configured Radarr/Sonarr instances
+- **Default Quality Profiles Configuration**: New UI section in Seerr settings for configuring default quality profiles and servers separately for movies (Radarr) and TV shows (Sonarr). These defaults are used when users don't specify a profile in their request
+- **Load Profiles & Servers Button**: Added convenient "Load Profiles & Servers" button in Seerr settings that fetches and populates all available quality profiles and servers from your configured Radarr/Sonarr instances
 
 ### 🔄 Changed
 
@@ -94,7 +94,7 @@ If upgrading from v1.4.0:
 
 ### 🏗️ Code Quality
 
-- **Jellyseerr API Module Expansion**: Extended `api/jellyseerr.js` with new functions for fetching quality profiles and servers from Jellyseerr API
+- **Seerr API Module Expansion**: Extended `api/seerr.js` with new functions for fetching quality profiles and servers from Seerr API
 - **Request Parameter Handling**: Improved request parameter validation and handling to support new optional fields (profileId, serverId) in media requests
 
 ---
@@ -107,7 +107,7 @@ If upgrading from v1.4.0:
 - **Embed Customization**: Granular control over notification embed elements - individually toggle backdrop image, overview/description, genre, runtime, rating, and each button (Letterboxd, IMDb, Watch Now)
 - **Separate Channel Mapping**: Added dedicated optional channel settings for episodes and seasons, allowing you to route different notification types to specific Discord channels
 - **Localizations**: Added Swedish (sv) and German (de) language support with work-in-progress translations
-- **Quality Profile Integration**: Radarr and Sonarr quality profile selection in Jellyseerr settings for movie and TV requests
+- **Quality Profile Integration**: Radarr and Sonarr quality profile selection in Seerr settings for movie and TV requests
 
 ---
 
@@ -173,7 +173,7 @@ If upgrading from v1.4.0:
 
 ### 🐛 Fixed
 
-- **Request Command Error**: Fixed `/request` command failing with "mediaId should be number" error by ensuring TMDB ID is properly converted to number before sending to Jellyseerr API
+- **Request Command Error**: Fixed `/request` command failing with "mediaId should be number" error by ensuring TMDB ID is properly converted to number before sending to Seerr API
 - **Ephemeral Messages**: Error and informative messages (already exists, permission denied) are now always ephemeral (visible only to command user), while success messages respect the `PRIVATE_MESSAGE_MODE` setting
 - **Refresh Button Loading**: Fixed Discord users refresh button getting stuck in loading state when bot is not running
 
@@ -192,10 +192,10 @@ If upgrading from v1.4.0:
 ### ✨ Added
 
 - **Trending Command**: New `/trending` command to browse weekly trending movies and TV shows from TMDB with rich autocomplete
-- **Duplicate Detection**: Bot now checks if content already exists in Jellyseerr before allowing requests
+- **Duplicate Detection**: Bot now checks if content already exists in Seerr before allowing requests
 - **PM Notifications**: New `NOTIFY_ON_AVAILABLE` setting - users receive a private message when their requested content becomes available on Jellyfin (Off by default)
 - **Miscellaneous Settings**: New configuration section (step 7) for optional/advanced features like auto-start and PM notifications
-- **User Mapping UI**: Custom dropdown selectors with search functionality for Discord and Jellyseerr users, which allow you to map Discord users with their respective Jellyseerr account, so the requests will now appear on Jellyseerr from their account. Requires enabling SERVER MEMBERS INTENT in Discord Developer Portal (Bot section -> Privileged Gateway Intents)
+- **User Mapping UI**: Custom dropdown selectors with search functionality for Discord and Seerr users, which allow you to map Discord users with their respective Seerr account, so the requests will now appear on Seerr from their account. Requires enabling SERVER MEMBERS INTENT in Discord Developer Portal (Bot section -> Privileged Gateway Intents)
 - **Role-Based Permissions**: Control who can use bot commands through Discord roles. `ROLE_ALLOWLIST` restricts commands to specific roles (if empty, everyone can use), and `ROLE_BLOCKLIST` blocks specific roles from using commands. Role Permissions UI in configuration dashboard (step 6) with visual role colors and member counts applied to all commands and interactions
 - **Discord Auto-Detection**: Custom dropdown that automatically detects Discord servers and channels - no more manual ID entry required (You need to invite the bot first and set up its token and client id)
 - **Ephemeral Message Mode**: New `PRIVATE_MESSAGE_MODE` setting that hides all bot responses (search results and request confirmations) from the public channel - messages are only visible to the user who issued the command. Can be toggled in Miscellaneous Settings (Off by default)
@@ -230,7 +230,7 @@ If upgrading from v1.4.0:
 - **Input Validation**: Added Joi validation schemas for all API endpoints to prevent malformed data and injection attacks
 - **Health Check Endpoint**: New `GET /api/health` endpoint for monitoring bot status, uptime, memory usage, and cache statistics
 - **TMDB API Module**: Extracted TMDB API client into separate module (`api/tmdb.js`) with all search, details, and trending functions
-- **Jellyseerr API Module**: Extracted Jellyseerr API client into separate module (`api/jellyseerr.js`) with media status checks and request functions
+- **Seerr API Module**: Extracted Seerr API client into separate module (`api/seerr.js`) with media status checks and request functions
 - **Discord Commands Module**: Separated command definitions into dedicated module (`discord/commands.js`) for better maintainability
 - **Modular Architecture**: Separated concerns into dedicated modules (API clients, commands, utilities) for better maintainability
 - **Centralized Configuration**: All constants moved to single location (`config/constants.js`) for easier maintenance and consistency
@@ -290,7 +290,7 @@ If upgrading from v1.4.0:
 
 - **🔄 Automatic .env Migration**: Configuration automatically migrates from `.env` to `config.json` on first run
 - **⚙️ Web Dashboard**: User-friendly configuration interface at `http://localhost:8282`
-- **🔗 Connection Testing**: Test buttons for Jellyseerr and Jellyfin connections
+- **🔗 Connection Testing**: Test buttons for Seerr and Jellyfin connections
 - **📝 Improved Documentation**: Completely rewritten README and CONTRIBUTING.md with modern design
 - **🎯 Auto-start Bot**: Start/stop bot directly from web dashboard
 
@@ -356,7 +356,7 @@ If upgrading from v1.1.0:
 - Discord slash commands (`/search`, `/request`)
 - Jellyfin webhook notifications
 - TMDB and OMDb API integration
-- Jellyseerr request functionality
+- Seerr request functionality
 - Docker support
 
 ### 🌟 Features

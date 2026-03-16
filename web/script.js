@@ -210,9 +210,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const navItems = document.querySelectorAll(
     ".nav-item, .about-button, .about-link"
   );
-  const testJellyseerrBtn = document.getElementById("test-jellyseerr-btn");
-  const testJellyseerrStatus = document.getElementById(
-    "test-jellyseerr-status"
+  const testSeerrBtn = document.getElementById("test-seerr-btn");
+  const testSeerrStatus = document.getElementById(
+    "test-seerr-status"
   );
   const testJellyfinBtn = document.getElementById("test-jellyfin-btn");
   const testJellyfinStatus = document.getElementById("test-jellyfin-status");
@@ -973,18 +973,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.body.removeChild(textArea);
   }
 
-  // Test Jellyseerr Connection
-  if (testJellyseerrBtn) {
-    testJellyseerrBtn.addEventListener("click", async () => {
-      const url = document.getElementById("JELLYSEERR_URL").value;
-      const apiKey = document.getElementById("JELLYSEERR_API_KEY").value;
+  // Test Seerr Connection
+  if (testSeerrBtn) {
+    testSeerrBtn.addEventListener("click", async () => {
+      const url = document.getElementById("SEERR_URL").value;
+      const apiKey = document.getElementById("SEERR_API_KEY").value;
 
-      testJellyseerrBtn.disabled = true;
-      testJellyseerrStatus.textContent = "Testing...";
-      testJellyseerrStatus.style.color = "var(--text)";
+      testSeerrBtn.disabled = true;
+      testSeerrStatus.textContent = "Testing...";
+      testSeerrStatus.style.color = "var(--text)";
 
       try {
-        const response = await fetch("/api/test-jellyseerr", {
+        const response = await fetch("/api/test-seerr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url, apiKey }),
@@ -992,44 +992,44 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (response.ok) {
           const result = await response.json();
-          testJellyseerrStatus.textContent = result.message;
-          testJellyseerrStatus.style.color = "var(--green)";
+          testSeerrStatus.textContent = result.message;
+          testSeerrStatus.style.color = "var(--green)";
         } else {
           const result = await response.json();
           throw new Error(result.message);
         }
       } catch (error) {
-        testJellyseerrStatus.textContent =
+        testSeerrStatus.textContent =
           error.message || "Connection failed.";
-        testJellyseerrStatus.style.color = "#f38ba8"; // Red
+        testSeerrStatus.style.color = "#f38ba8"; // Red
       } finally {
-        testJellyseerrBtn.disabled = false;
+        testSeerrBtn.disabled = false;
       }
     });
   }
 
   // Load Quality Profiles and Servers
-  const loadJellyseerrOptionsBtn = document.getElementById("load-jellyseerr-options-btn");
-  const loadJellyseerrOptionsStatus = document.getElementById("load-jellyseerr-options-status");
+  const loadSeerrOptionsBtn = document.getElementById("load-seerr-options-btn");
+  const loadSeerrOptionsStatus = document.getElementById("load-seerr-options-status");
   
-  if (loadJellyseerrOptionsBtn) {
-    loadJellyseerrOptionsBtn.addEventListener("click", async () => {
-      const url = document.getElementById("JELLYSEERR_URL").value;
-      const apiKey = document.getElementById("JELLYSEERR_API_KEY").value;
+  if (loadSeerrOptionsBtn) {
+    loadSeerrOptionsBtn.addEventListener("click", async () => {
+      const url = document.getElementById("SEERR_URL").value;
+      const apiKey = document.getElementById("SEERR_API_KEY").value;
 
       if (!url || !apiKey) {
-        loadJellyseerrOptionsStatus.textContent = "Enter URL and API Key first";
-        loadJellyseerrOptionsStatus.style.color = "#f38ba8";
+        loadSeerrOptionsStatus.textContent = "Enter URL and API Key first";
+        loadSeerrOptionsStatus.style.color = "#f38ba8";
         return;
       }
 
-      loadJellyseerrOptionsBtn.disabled = true;
-      loadJellyseerrOptionsStatus.textContent = "Loading...";
-      loadJellyseerrOptionsStatus.style.color = "var(--text)";
+      loadSeerrOptionsBtn.disabled = true;
+      loadSeerrOptionsStatus.textContent = "Loading...";
+      loadSeerrOptionsStatus.style.color = "var(--text)";
 
       try {
         // Fetch quality profiles
-        const profilesResponse = await fetch("/api/jellyseerr/quality-profiles", {
+        const profilesResponse = await fetch("/api/seerr/quality-profiles", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url, apiKey }),
@@ -1041,7 +1041,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const profilesResult = await profilesResponse.json();
 
         // Fetch servers
-        const serversResponse = await fetch("/api/jellyseerr/servers", {
+        const serversResponse = await fetch("/api/seerr/servers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url, apiKey }),
@@ -1072,7 +1072,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const savedTvServer = tvServerSelect.dataset.savedValue || tvServerSelect.value;
 
         // Movie quality profiles (Radarr)
-        movieQualitySelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        movieQualitySelect.innerHTML = '<option value="">Use Seerr default</option>';
         const radarrProfiles = profilesResult.profiles.filter(p => p.type === "radarr");
         radarrProfiles.forEach(profile => {
           const option = document.createElement("option");
@@ -1083,7 +1083,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (savedMovieQuality) movieQualitySelect.value = savedMovieQuality;
 
         // TV quality profiles (Sonarr)
-        tvQualitySelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        tvQualitySelect.innerHTML = '<option value="">Use Seerr default</option>';
         const sonarrProfiles = profilesResult.profiles.filter(p => p.type === "sonarr");
         sonarrProfiles.forEach(profile => {
           const option = document.createElement("option");
@@ -1094,7 +1094,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (savedTvQuality) tvQualitySelect.value = savedTvQuality;
 
         // Movie servers (Radarr)
-        movieServerSelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        movieServerSelect.innerHTML = '<option value="">Use Seerr default</option>';
         const radarrServers = serversResult.servers.filter(s => s.type === "radarr");
         radarrServers.forEach(server => {
           const option = document.createElement("option");
@@ -1105,7 +1105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (savedMovieServer) movieServerSelect.value = savedMovieServer;
 
         // TV servers (Sonarr)
-        tvServerSelect.innerHTML = '<option value="">Use Jellyseerr default</option>';
+        tvServerSelect.innerHTML = '<option value="">Use Seerr default</option>';
         const sonarrServers = serversResult.servers.filter(s => s.type === "sonarr");
         sonarrServers.forEach(server => {
           const option = document.createElement("option");
@@ -1117,13 +1117,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const totalProfiles = radarrProfiles.length + sonarrProfiles.length;
         const totalServers = radarrServers.length + sonarrServers.length;
-        loadJellyseerrOptionsStatus.textContent = `Loaded ${totalProfiles} profiles, ${totalServers} servers`;
-        loadJellyseerrOptionsStatus.style.color = "var(--green)";
+        loadSeerrOptionsStatus.textContent = `Loaded ${totalProfiles} profiles, ${totalServers} servers`;
+        loadSeerrOptionsStatus.style.color = "var(--green)";
       } catch (error) {
-        loadJellyseerrOptionsStatus.textContent = error.message || "Failed to load options";
-        loadJellyseerrOptionsStatus.style.color = "#f38ba8";
+        loadSeerrOptionsStatus.textContent = error.message || "Failed to load options";
+        loadSeerrOptionsStatus.style.color = "#f38ba8";
       } finally {
-        loadJellyseerrOptionsBtn.disabled = false;
+        loadSeerrOptionsBtn.disabled = false;
       }
     });
   }
@@ -1922,15 +1922,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- User Mappings ---
-  let jellyseerrUsers = [];
+  let seerrUsers = [];
   let discordMembers = [];
   let currentMappings = []; // Will be array of enriched objects with metadata
   let membersLoaded = false; // Track if we've loaded members for the dropdown
-  let usersLoaded = false; // Track if we've loaded jellyseerr users
+  let usersLoaded = false; // Track if we've loaded seerr users
 
   // Cache keys
   const DISCORD_MEMBERS_CACHE_KEY = "anchorr_discord_members_cache";
-  const JELLYSEERR_USERS_CACHE_KEY = "anchorr_jellyseerr_users_cache";
+  const SEERR_USERS_CACHE_KEY = "anchorr_seerr_users_cache";
   const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
   // Load from cache
@@ -2127,37 +2127,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     trigger.setAttribute("readonly", "");
   }
 
-  async function loadJellyseerrUsers(forceRefresh = false) {
+  async function loadSeerrUsers(forceRefresh = false) {
     // Try cache first
     if (!forceRefresh) {
-      const cachedUsers = loadFromCache(JELLYSEERR_USERS_CACHE_KEY);
+      const cachedUsers = loadFromCache(SEERR_USERS_CACHE_KEY);
       if (cachedUsers && cachedUsers.length > 0) {
-        jellyseerrUsers = cachedUsers;
+        seerrUsers = cachedUsers;
         usersLoaded = true;
-        populateJellyseerrUserSelect();
+        populateSeerrUserSelect();
         return;
       }
     }
 
-    if (usersLoaded && jellyseerrUsers.length > 0 && !forceRefresh) {
+    if (usersLoaded && seerrUsers.length > 0 && !forceRefresh) {
       return;
     }
 
     try {
-      const response = await fetch("/api/jellyseerr-users");
+      const response = await fetch("/api/seerr-users");
       const data = await response.json();
 
       if (data.success && data.users) {
-        jellyseerrUsers = data.users;
+        seerrUsers = data.users;
         usersLoaded = true;
-        saveToCache(JELLYSEERR_USERS_CACHE_KEY, data.users);
-        populateJellyseerrUserSelect();
+        saveToCache(SEERR_USERS_CACHE_KEY, data.users);
+        populateSeerrUserSelect();
       }
     } catch (error) {}
   }
 
-  function populateJellyseerrUserSelect() {
-    const customSelect = document.getElementById("jellyseerr-user-select");
+  function populateSeerrUserSelect() {
+    const customSelect = document.getElementById("seerr-user-select");
     if (!customSelect) return;
 
     const optionsContainer = customSelect.querySelector(
@@ -2167,7 +2167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     optionsContainer.innerHTML = "";
 
-    jellyseerrUsers.forEach((user) => {
+    seerrUsers.forEach((user) => {
       const option = document.createElement("div");
       option.className = "custom-select-option";
       option.dataset.value = user.id;
@@ -2177,7 +2177,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Check if this user is already in active mappings
       const isInMapping = currentMappings.some(
-        (mapping) => String(mapping.jellyseerrUserId) === String(user.id)
+        (mapping) => String(mapping.seerrUserId) === String(user.id)
       );
       const checkmarkHtml = isInMapping
         ? `<i class="bi bi-check-circle-fill" style="color: var(--green); margin-left: auto; font-size: 1.1rem;"></i>`
@@ -2208,15 +2208,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       option.addEventListener("click", () => {
-        selectJellyseerrUser(user);
+        selectSeerrUser(user);
       });
 
       optionsContainer.appendChild(option);
     });
   }
 
-  function selectJellyseerrUser(user) {
-    const customSelect = document.getElementById("jellyseerr-user-select");
+  function selectSeerrUser(user) {
+    const customSelect = document.getElementById("seerr-user-select");
     const trigger = customSelect.querySelector(".custom-select-trigger");
 
     // Store selected value
@@ -2291,15 +2291,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadDiscordMembers(); // Will use cache if available
       }
 
-      // Load Jellyseerr users if not loaded
+      // Load Seerr users if not loaded
       if (!usersLoaded && currentMappings.length > 0) {
-        await loadJellyseerrUsers();
+        await loadSeerrUsers();
       }
 
       // Check if we need to update any mappings with missing metadata
       let needsUpdate = false;
       for (const mapping of currentMappings) {
-        if (!mapping.discordDisplayName || !mapping.jellyseerrDisplayName) {
+        if (!mapping.discordDisplayName || !mapping.seerrDisplayName) {
           needsUpdate = true;
           break;
         }
@@ -2322,26 +2322,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (
           !mapping.discordDisplayName ||
           !mapping.discordAvatar ||
-          !mapping.jellyseerrDisplayName
+          !mapping.seerrDisplayName
         ) {
           const discordMember = discordMembers.find(
             (m) => m.id === mapping.discordUserId
           );
-          const jellyseerrUser = jellyseerrUsers.find(
-            (u) => String(u.id) === String(mapping.jellyseerrUserId)
+          const seerrUser = seerrUsers.find(
+            (u) => String(u.id) === String(mapping.seerrUserId)
           );
 
-          if (discordMember || jellyseerrUser) {
+          if (discordMember || seerrUser) {
             const updatedData = {
               discordUserId: mapping.discordUserId,
-              jellyseerrUserId: mapping.jellyseerrUserId,
+              seerrUserId: mapping.seerrUserId,
               discordUsername:
                 discordMember?.username || mapping.discordUsername,
               discordDisplayName:
                 discordMember?.displayName || mapping.discordDisplayName,
               discordAvatar: discordMember?.avatar || mapping.discordAvatar,
-              jellyseerrDisplayName:
-                jellyseerrUser?.displayName || mapping.jellyseerrDisplayName,
+              seerrDisplayName:
+                seerrUser?.displayName || mapping.seerrDisplayName,
             };
 
             await fetch("/api/user-mappings", {
@@ -2380,19 +2380,19 @@ document.addEventListener("DOMContentLoaded", async () => {
           ? `@${mapping.discordUsername}`
           : `Discord ID: ${mapping.discordUserId}`;
 
-        // Dynamic lookup for Jellyseerr user to ensure fresh data
-        let jellyseerrName = mapping.jellyseerrDisplayName;
-        const jellyseerrUser = jellyseerrUsers.find(
-          (u) => String(u.id) === String(mapping.jellyseerrUserId)
+        // Dynamic lookup for Seerr user to ensure fresh data
+        let seerrName = mapping.seerrDisplayName;
+        const seerrUser = seerrUsers.find(
+          (u) => String(u.id) === String(mapping.seerrUserId)
         );
 
-        if (jellyseerrUser) {
-          jellyseerrName = jellyseerrUser.displayName;
-          if (jellyseerrUser.email) {
-            jellyseerrName += ` (${jellyseerrUser.email})`;
+        if (seerrUser) {
+          seerrName = seerrUser.displayName;
+          if (seerrUser.email) {
+            seerrName += ` (${seerrUser.email})`;
           }
-        } else if (!jellyseerrName) {
-          jellyseerrName = `Jellyseerr ID: ${mapping.jellyseerrUserId}`;
+        } else if (!seerrName) {
+          seerrName = `Seerr ID: ${mapping.seerrUserId}`;
         }
 
         // Avatar priority: saved in mapping -> find from loaded members -> no avatar
@@ -2419,8 +2419,8 @@ document.addEventListener("DOMContentLoaded", async () => {
               <div style="font-weight: 600; color: var(--blue);">${escapeHtml(
                 discordName
               )}</div>
-              <div style="opacity: 0.8; font-size: 0.9rem;">→ Jellyseerr: ${escapeHtml(
-                jellyseerrName
+              <div style="opacity: 0.8; font-size: 0.9rem;">→ Seerr: ${escapeHtml(
+                seerrName
               )}</div>
             </div>
           </div>
@@ -2459,31 +2459,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (addMappingBtn) {
     addMappingBtn.addEventListener("click", async () => {
       const discordSelect = document.getElementById("discord-user-select");
-      const jellyseerrSelect = document.getElementById(
-        "jellyseerr-user-select"
+      const seerrSelect = document.getElementById(
+        "seerr-user-select"
       );
       const discordUserId = discordSelect.dataset.value;
-      const jellyseerrUserId = jellyseerrSelect.dataset.value;
+      const seerrUserId = seerrSelect.dataset.value;
 
-      if (!discordUserId || !jellyseerrUserId) {
-        showToast("Please select both a Discord user and a Jellyseerr user.");
+      if (!discordUserId || !seerrUserId) {
+        showToast("Please select both a Discord user and a Seerr user.");
         return;
       }
 
       // Extract display names and avatar from the selected options
       const discordMember = discordMembers.find((m) => m.id === discordUserId);
-      const jellyseerrUser = jellyseerrUsers.find(
-        (u) => String(u.id) === String(jellyseerrUserId)
+      const seerrUser = seerrUsers.find(
+        (u) => String(u.id) === String(seerrUserId)
       );
 
       // Prepare data for submission
       const mappingData = {
         discordUserId,
-        jellyseerrUserId,
+        seerrUserId,
         discordUsername: discordMember?.username || null,
         discordDisplayName: discordMember?.displayName || null,
         discordAvatar: discordMember?.avatar || null,
-        jellyseerrDisplayName: jellyseerrUser?.displayName || null,
+        seerrDisplayName: seerrUser?.displayName || null,
       };
 
       try {
@@ -2512,20 +2512,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           discordTrigger.value = "";
           discordTrigger.style.display = "block";
 
-          // Reset Jellyseerr custom select
-          delete jellyseerrSelect.dataset.value;
-          delete jellyseerrSelect.dataset.displayName;
-          delete jellyseerrSelect.dataset.email;
-          jellyseerrSelect.classList.remove("has-selection");
-          const jellyseerrDisplay = jellyseerrSelect.querySelector(
+          // Reset Seerr custom select
+          delete seerrSelect.dataset.value;
+          delete seerrSelect.dataset.displayName;
+          delete seerrSelect.dataset.email;
+          seerrSelect.classList.remove("has-selection");
+          const seerrDisplay = seerrSelect.querySelector(
             ".custom-select-display"
           );
-          if (jellyseerrDisplay) jellyseerrDisplay.remove();
-          const jellyseerrTrigger = jellyseerrSelect.querySelector(
+          if (seerrDisplay) seerrDisplay.remove();
+          const seerrTrigger = seerrSelect.querySelector(
             ".custom-select-trigger"
           );
-          jellyseerrTrigger.value = "";
-          jellyseerrTrigger.style.display = "block";
+          seerrTrigger.value = "";
+          seerrTrigger.style.display = "block";
 
           await loadMappings();
         } else {
@@ -2537,7 +2537,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Refresh All Users button (Discord + Jellyseerr)
+  // Refresh All Users button (Discord + Seerr)
   const refreshAllUsersBtn = document.getElementById("refresh-all-users-btn");
   if (refreshAllUsersBtn) {
     refreshAllUsersBtn.addEventListener("click", async () => {
@@ -2549,18 +2549,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // Clear local caches
         localStorage.removeItem(DISCORD_MEMBERS_CACHE_KEY);
-        localStorage.removeItem(JELLYSEERR_USERS_CACHE_KEY);
+        localStorage.removeItem(SEERR_USERS_CACHE_KEY);
         membersLoaded = false;
         usersLoaded = false;
 
         // Fetch both in parallel for better performance
-        const [discordResponse, jellyseerrResponse] = await Promise.all([
+        const [discordResponse, seerrResponse] = await Promise.all([
           fetch("/api/discord-members"),
-          fetch("/api/jellyseerr-users"),
+          fetch("/api/seerr-users"),
         ]);
 
         const discordData = await discordResponse.json();
-        const jellyseerrData = await jellyseerrResponse.json();
+        const seerrData = await seerrResponse.json();
 
         let successCount = 0;
         const messages = [];
@@ -2581,20 +2581,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           messages.push("Discord ❌");
         }
 
-        // Process Jellyseerr users
-        if (jellyseerrData.success && jellyseerrData.users) {
-          jellyseerrUsers = jellyseerrData.users;
+        // Process Seerr users
+        if (seerrData.success && seerrData.users) {
+          seerrUsers = seerrData.users;
           usersLoaded = true;
-          saveToCache(JELLYSEERR_USERS_CACHE_KEY, jellyseerrData.users);
-          populateJellyseerrUserSelect();
+          saveToCache(SEERR_USERS_CACHE_KEY, seerrData.users);
+          populateSeerrUserSelect();
           successCount++;
           messages.push(
-            jellyseerrData.fetchedRealtime
-              ? "Jellyseerr (real-time)"
-              : "Jellyseerr"
+            seerrData.fetchedRealtime
+              ? "Seerr (real-time)"
+              : "Seerr"
           );
         } else {
-          messages.push("Jellyseerr ❌");
+          messages.push("Seerr ❌");
         }
 
         // Show combined status
@@ -2617,7 +2617,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Lazy load members/users when user clicks on the dropdowns
   const discordSelect = document.getElementById("discord-user-select");
-  const jellyseerrSelect = document.getElementById("jellyseerr-user-select");
+  const seerrSelect = document.getElementById("seerr-user-select");
 
   if (discordSelect) {
     const trigger = discordSelect.querySelector(".custom-select-trigger");
@@ -2725,21 +2725,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
   }
 
-  if (jellyseerrSelect) {
-    const trigger = jellyseerrSelect.querySelector(".custom-select-trigger");
-    const chevron = jellyseerrSelect.querySelector(".custom-select-chevron");
+  if (seerrSelect) {
+    const trigger = seerrSelect.querySelector(".custom-select-trigger");
+    const chevron = seerrSelect.querySelector(".custom-select-chevron");
 
     // Click on wrapper or trigger to open
-    jellyseerrSelect.addEventListener("click", (e) => {
+    seerrSelect.addEventListener("click", (e) => {
       // Don't open if clicking on an option
       if (e.target.closest(".custom-select-option")) return;
 
-      const wasActive = jellyseerrSelect.classList.contains("active");
-      const hasSelection = jellyseerrSelect.classList.contains("has-selection");
+      const wasActive = seerrSelect.classList.contains("active");
+      const hasSelection = seerrSelect.classList.contains("has-selection");
 
       // Close all other custom selects
       document.querySelectorAll(".custom-select.active").forEach((el) => {
-        if (el !== jellyseerrSelect) {
+        if (el !== seerrSelect) {
           el.classList.remove("active");
         }
       });
@@ -2747,12 +2747,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!wasActive) {
         // Load users if not loaded
         if (!usersLoaded) {
-          loadJellyseerrUsers();
+          loadSeerrUsers();
         }
 
         // If user was selected, restore search mode
         if (hasSelection) {
-          const display = jellyseerrSelect.querySelector(
+          const display = seerrSelect.querySelector(
             ".custom-select-display"
           );
           if (display) display.style.display = "none";
@@ -2760,15 +2760,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           trigger.value = "";
         }
 
-        jellyseerrSelect.classList.add("active");
+        seerrSelect.classList.add("active");
         trigger.removeAttribute("readonly");
         trigger.focus();
       } else {
-        jellyseerrSelect.classList.remove("active");
+        seerrSelect.classList.remove("active");
 
         // If has selection, restore display mode
         if (hasSelection) {
-          const display = jellyseerrSelect.querySelector(
+          const display = seerrSelect.querySelector(
             ".custom-select-display"
           );
           if (display) display.style.display = "flex";
@@ -2783,7 +2783,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Search functionality
     trigger.addEventListener("input", (e) => {
       const searchTerm = e.target.value.toLowerCase();
-      const options = jellyseerrSelect.querySelectorAll(
+      const options = seerrSelect.querySelectorAll(
         ".custom-select-option"
       );
 
@@ -2800,13 +2800,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function restoreJellyseerrTrigger() {
-    const jellyseerrSelect = document.getElementById("jellyseerr-user-select");
-    const trigger = jellyseerrSelect.querySelector(".custom-select-trigger");
-    const selectedValue = jellyseerrSelect.dataset.value;
+  function restoreSeerrTrigger() {
+    const seerrSelect = document.getElementById("seerr-user-select");
+    const trigger = seerrSelect.querySelector(".custom-select-trigger");
+    const selectedValue = seerrSelect.dataset.value;
 
     if (selectedValue) {
-      const user = jellyseerrUsers.find(
+      const user = seerrUsers.find(
         (u) => String(u.id) === String(selectedValue)
       );
       if (user) {
@@ -2823,7 +2823,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     trigger.innerHTML = `
-      <span>Select a Jellyseerr user...</span>
+      <span>Select a Seerr user...</span>
       <i class="bi bi-chevron-down"></i>
     `;
   }
@@ -3053,49 +3053,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Update connection status indicators
   async function updateConnectionStatus() {
-    const jellyseerrIndicator = document.getElementById(
-      "jellyseerr-status-indicator"
+    const seerrIndicator = document.getElementById(
+      "seerr-status-indicator"
     );
     const jellyfinIndicator = document.getElementById(
       "jellyfin-status-indicator"
     );
 
-    if (!jellyseerrIndicator || !jellyfinIndicator) {
+    if (!seerrIndicator || !jellyfinIndicator) {
       return; // Not on logs page
     }
 
     // Set to checking state
-    jellyseerrIndicator.className = "status-dot status-checking";
+    seerrIndicator.className = "status-dot status-checking";
     jellyfinIndicator.className = "status-dot status-checking";
 
-    // Test Jellyseerr - get current config values
+    // Test Seerr - get current config values
     try {
       const configResponse = await fetch("/api/config");
       const config = await configResponse.json();
 
-      const jellyseerrUrl = config.JELLYSEERR_URL;
-      const jellyseerrApiKey = config.JELLYSEERR_API_KEY;
+      const seerrUrl = config.SEERR_URL;
+      const seerrApiKey = config.SEERR_API_KEY;
 
-      if (!jellyseerrUrl || !jellyseerrApiKey) {
-        jellyseerrIndicator.className = "status-dot status-disconnected";
+      if (!seerrUrl || !seerrApiKey) {
+        seerrIndicator.className = "status-dot status-disconnected";
       } else {
-        const jellyseerrResponse = await fetch("/api/test-jellyseerr", {
+        const seerrResponse = await fetch("/api/test-seerr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            url: jellyseerrUrl,
-            apiKey: jellyseerrApiKey,
+            url: seerrUrl,
+            apiKey: seerrApiKey,
           }),
         });
 
-        if (jellyseerrResponse.ok) {
-          jellyseerrIndicator.className = "status-dot status-connected";
+        if (seerrResponse.ok) {
+          seerrIndicator.className = "status-dot status-connected";
         } else {
-          jellyseerrIndicator.className = "status-dot status-disconnected";
+          seerrIndicator.className = "status-dot status-disconnected";
         }
       }
     } catch (error) {
-      jellyseerrIndicator.className = "status-dot status-disconnected";
+      seerrIndicator.className = "status-dot status-disconnected";
     }
 
     // Test Jellyfin - get current config values

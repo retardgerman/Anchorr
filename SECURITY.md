@@ -42,7 +42,7 @@ Useful context may include whether the issue affects:
 - Stored configuration or secrets
 - Discord bot commands or permissions
 - Jellyfin webhook ingestion
-- Jellyseerr request handling
+- Seerr request handling
 - Docker deployment defaults
 
 ## Response Process
