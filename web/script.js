@@ -2425,7 +2425,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
           </div>
           <button class="btn btn-danger btn-sm" onclick="deleteMapping('${
-            mapping.discordUserId
+            escapeHtml(mapping.discordUserId)
           }')" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
             <i class="bi bi-trash"></i> Remove
           </button>

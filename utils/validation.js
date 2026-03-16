@@ -48,8 +48,8 @@ export const configSchema = Joi.object({
 
 // --- USER MAPPING VALIDATION ---
 export const userMappingSchema = Joi.object({
-  discordUserId: Joi.string().required(),
-  seerrUserId: Joi.string().required(),
+  discordUserId: Joi.string().pattern(/^\d{17,19}$/).required(),
+  seerrUserId: Joi.string().pattern(/^\d+$/).required(),
   discordUsername: Joi.string().allow(null, "").optional(),
   seerrUsername: Joi.string().allow(null, "").optional(),
   discordDisplayName: Joi.string().allow(null, "").optional(),
