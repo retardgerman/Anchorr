@@ -12,6 +12,51 @@ import {
 const AUTH_TOKEN_EXPIRATION = "7d";
 const AUTH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// --- BRUTE-FORCE PROTECTION ---
+const MAX_FAILED_ATTEMPTS = 5;          // lock after this many consecutive failures
+const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 min lockout
+const BASE_DELAY_MS = 300;              // progressive delay per failure: attempt * 300ms
+const MAX_DELAY_MS = 4000;             // cap at 4s
+
+// username → { count: number, lockedUntil: number }
+const failedAttempts = new Map();
+
+function getAttemptEntry(username) {
+  return failedAttempts.get(username) || { count: 0, lockedUntil: 0 };
+}
+
+function recordFailure(username) {
+  const entry = getAttemptEntry(username);
+  const count = entry.count + 1;
+  const lockedUntil =
+    count >= MAX_FAILED_ATTEMPTS ? Date.now() + LOCKOUT_DURATION_MS : entry.lockedUntil;
+  failedAttempts.set(username, { count, lockedUntil });
+  // Auto-cleanup so the map doesn't grow unbounded
+  const cleanup = setTimeout(
+    () => failedAttempts.delete(username),
+    LOCKOUT_DURATION_MS + 5000
+  );
+  if (typeof cleanup.unref === "function") cleanup.unref();
+}
+
+function clearFailures(username) {
+  failedAttempts.delete(username);
+}
+
+function checkLockout(username) {
+  const entry = getAttemptEntry(username);
+  if (entry.lockedUntil > Date.now()) {
+    return Math.ceil((entry.lockedUntil - Date.now()) / 1000); // seconds remaining
+  }
+  return 0;
+}
+
+function progressiveDelay(username) {
+  const { count } = getAttemptEntry(username);
+  const ms = Math.min(count * BASE_DELAY_MS, MAX_DELAY_MS);
+  return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
+}
+
 // Generate or retrieve JWT_SECRET
 function getOrGenerateJwtSecret() {
   // ALWAYS try to load from config file first (most important)
@@ -148,21 +193,44 @@ export const login = async (req, res) => {
       .json({ success: false, message: "Username and password are required" });
   }
 
+  // Check lockout before doing anything else
+  const secondsRemaining = checkLockout(username);
+  if (secondsRemaining > 0) {
+    logger.warn(`🔒 Login blocked for "${username}" — account locked (${secondsRemaining}s remaining, from ${req.ip})`);
+    return res.status(429).json({
+      success: false,
+      message: `Too many failed attempts. Try again in ${secondsRemaining} seconds.`,
+    });
+  }
+
   const users = getUsers();
   const user = users.find((u) => u.username === username);
 
-  if (!user) {
+  // Always run bcrypt compare to prevent user-enumeration via timing
+  const dummyHash = "$2a$12$invalidhashpaddingtomatchbcryptlength000000000000000000000";
+  const validPassword = user
+    ? await bcrypt.compare(password, user.password)
+    : await bcrypt.compare(password, dummyHash).then(() => false);
+
+  if (!user || !validPassword) {
+    await progressiveDelay(username);
+    recordFailure(username);
+    const entry = getAttemptEntry(username);
+    const attemptsLeft = MAX_FAILED_ATTEMPTS - entry.count;
+    if (attemptsLeft <= 0) {
+      logger.warn(`🔒 Account "${username}" locked after ${MAX_FAILED_ATTEMPTS} failed attempts (from ${req.ip})`);
+      return res.status(429).json({
+        success: false,
+        message: `Too many failed attempts. Account locked for ${Math.ceil(LOCKOUT_DURATION_MS / 60000)} minutes.`,
+      });
+    }
+    logger.warn(`⚠️ Failed login for "${username}" — ${entry.count}/${MAX_FAILED_ATTEMPTS} attempts (from ${req.ip})`);
     return res
       .status(401)
       .json({ success: false, message: "Invalid credentials" });
   }
 
-  const validPassword = await bcrypt.compare(password, user.password);
-  if (!validPassword) {
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid credentials" });
-  }
+  clearFailures(username);
 
   const token = jwt.sign({ id: user.id, username: user.username, jti: crypto.randomUUID() }, JWT_SECRET, {
     expiresIn: AUTH_TOKEN_EXPIRATION,
