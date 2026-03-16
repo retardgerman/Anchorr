@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.3] - 2026-03-16
+
+### ℹ️ Important
+
+- **Seerr rebrand — config key rename**: All `JELLYSEERR_*` config keys have been renamed to `SEERR_*` (`SEERR_URL`, `SEERR_API_KEY`, `SEERR_AUTO_APPROVE`). User mapping keys `jellyseerr{UserId,Username,DisplayName}` are renamed to `seerr{UserId,Username,DisplayName}`. **Auto-migration runs silently on first boot** — existing `config.json` files are upgraded automatically. No manual action required unless you have hardcoded `JELLYSEERR_*` environment variables outside of `config.json`.
+
+### 🔒 Security
+
+- **Login brute-force protection** (ref [#80](../../issues/80)): Account locked for 10 minutes after 5 consecutive failed login attempts per username (HTTP 429 with seconds remaining). Progressive 300ms-per-attempt response delay (capped at 4 s) slows automated tools. bcrypt always runs even for unknown usernames to prevent user enumeration via timing. Existing IP-based rate limit (20 req / 15 min) remains as a first layer
+- **XSS fix — user mapping remove button**: `discordUserId` is now escaped with `escapeHtml()` before being placed in the `onclick` attribute, and validated against Discord snowflake format (17–19 digits). Fixes stored XSS where a crafted Discord user ID could inject arbitrary JS into any admin's browser on page load
+
+### 🐛 Fixed
+
+- **Jellyfin webhook Content-Type**: `express.json()` was silently dropping Jellyfin webhook bodies because Jellyfin sends `Content-Type: text/plain`. The endpoint now uses `express.json({ type: "*/*" })` to accept any content type
+- **Webhook debounce error no longer blocks a series**: A failed Discord send previously left a `level: -1` temp marker in `sentNotifications`, blocking all future webhooks for that series for up to 24 hours. The marker is now deleted immediately on error, and the orphaned-marker cleanup timeout is reduced from 24 h to 5 min
+- **Empty channel no longer crashes the webhook handler**: When no Discord channel is configured for a library, the handler now logs a clear config error and returns cleanly instead of throwing a cryptic Discord API exception
+
+### 🚀 Improvements
+
+- **Pending DM requests survive restarts**: `pendingRequests` is persisted to `pending-requests.json` (next to `config.json`, mode 0600) on every write and loaded on bot startup — users who requested media via `/request` now receive their DM notification even if the bot was restarted before the media became available
+- **Webhook secret visible on page load**: The webhook secret field in the dashboard is now populated automatically on load so the value is immediately visible and copyable without digging through the config
+- **Better webhook error logs**: Errors and warnings in the webhook handler now include `ItemType` and `Name` for easier debugging without parsing the raw payload
+
+### 🏗️ Code Quality
+
+- Fix timer leak in `auth.js`: previous cleanup timer is cancelled before a new one is scheduled, preventing unbounded `setTimeout` handle accumulation under sustained login attacks
+- Remove redundant `Map.get` call in the login handler immediately after `recordFailure`
+- `/api/webhook-secret` returns the in-memory `WEBHOOK_SECRET` constant instead of calling `readConfig()` on every request
+- Copy-secret button reads from the already-populated input field instead of making a second fetch to `/api/webhook-secret`
+
+---
+
 ## [1.4.2] - 2026-03-15
 
 ### 🔒 Security
