@@ -18,25 +18,28 @@ const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 min lockout
 const BASE_DELAY_MS = 300;              // progressive delay per failure: attempt * 300ms
 const MAX_DELAY_MS = 4000;             // cap at 4s
 
-// username → { count: number, lockedUntil: number }
+// username → { count: number, lockedUntil: number, timerId: NodeJS.Timeout|null }
 const failedAttempts = new Map();
 
 function getAttemptEntry(username) {
-  return failedAttempts.get(username) || { count: 0, lockedUntil: 0 };
+  return failedAttempts.get(username) || { count: 0, lockedUntil: 0, timerId: null };
 }
 
 function recordFailure(username) {
   const entry = getAttemptEntry(username);
+  // Cancel the previous cleanup timer so only one is active per username
+  if (entry.timerId) clearTimeout(entry.timerId);
   const count = entry.count + 1;
   const lockedUntil =
     count >= MAX_FAILED_ATTEMPTS ? Date.now() + LOCKOUT_DURATION_MS : entry.lockedUntil;
-  failedAttempts.set(username, { count, lockedUntil });
   // Auto-cleanup so the map doesn't grow unbounded
-  const cleanup = setTimeout(
+  const timerId = setTimeout(
     () => failedAttempts.delete(username),
     LOCKOUT_DURATION_MS + 5000
   );
-  if (typeof cleanup.unref === "function") cleanup.unref();
+  if (typeof timerId.unref === "function") timerId.unref();
+  failedAttempts.set(username, { count, lockedUntil, timerId });
+  return { count, lockedUntil };
 }
 
 function clearFailures(username) {
@@ -214,9 +217,8 @@ export const login = async (req, res) => {
 
   if (!user || !validPassword) {
     await progressiveDelay(username);
-    recordFailure(username);
-    const entry = getAttemptEntry(username);
-    const attemptsLeft = MAX_FAILED_ATTEMPTS - entry.count;
+    const { count } = recordFailure(username);
+    const attemptsLeft = MAX_FAILED_ATTEMPTS - count;
     if (attemptsLeft <= 0) {
       logger.warn(`🔒 Account "${username}" locked after ${MAX_FAILED_ATTEMPTS} failed attempts (from ${req.ip})`);
       return res.status(429).json({
@@ -224,7 +226,7 @@ export const login = async (req, res) => {
         message: `Too many failed attempts. Account locked for ${Math.ceil(LOCKOUT_DURATION_MS / 60000)} minutes.`,
       });
     }
-    logger.warn(`⚠️ Failed login for "${username}" — ${entry.count}/${MAX_FAILED_ATTEMPTS} attempts (from ${req.ip})`);
+    logger.warn(`⚠️ Failed login for "${username}" — ${count}/${MAX_FAILED_ATTEMPTS} attempts (from ${req.ip})`);
     return res
       .status(401)
       .json({ success: false, message: "Invalid credentials" });

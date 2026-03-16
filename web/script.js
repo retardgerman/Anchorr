@@ -897,26 +897,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (_) {}
   })();
 
-  // Copy webhook secret (fetched from dedicated endpoint, not from form input)
-  document.getElementById("copy-webhook-secret-btn").addEventListener("click", async () => {
-    try {
-      const response = await fetch("/api/webhook-secret");
-      if (!response.ok) throw new Error("Failed to fetch webhook secret");
-      const data = await response.json();
-      const textToCopy = data.secret || "";
-      if (!textToCopy) {
-        showToast("No webhook secret configured.");
-        return;
-      }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(textToCopy)
-          .then(() => showToast("Webhook secret copied to clipboard!"))
-          .catch(() => fallbackCopyTextToClipboard(textToCopy));
-      } else {
-        fallbackCopyTextToClipboard(textToCopy);
-      }
-    } catch (error) {
-      showToast("Failed to copy webhook secret.");
+  // Copy webhook secret (reads from the already-populated input field)
+  document.getElementById("copy-webhook-secret-btn").addEventListener("click", () => {
+    const textToCopy = document.getElementById("WEBHOOK_SECRET")?.value || "";
+    if (!textToCopy) {
+      showToast("No webhook secret configured.");
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => showToast("Webhook secret copied to clipboard!"))
+        .catch(() => fallbackCopyTextToClipboard(textToCopy));
+    } else {
+      fallbackCopyTextToClipboard(textToCopy);
     }
   });
 

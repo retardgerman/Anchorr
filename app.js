@@ -3066,8 +3066,7 @@ function configureWebServer() {
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
-    const config = readConfig();
-    res.json({ secret: config?.WEBHOOK_SECRET || null });
+    res.json({ secret: WEBHOOK_SECRET || null });
   });
 
   // Get available languages dynamically from locales directory
