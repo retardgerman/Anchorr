@@ -2,12 +2,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import logger from "./logger.js";
-import {
-  readConfig,
-  updateConfig,
-  getUsers,
-  saveUser as saveUserToConfig,
-} from "./configFile.js";
+import { readConfig, updateConfig } from "./configFile.js";
+import { getUsers, saveUser as saveUserToConfig } from "./userStore.js";
 
 const AUTH_TOKEN_EXPIRATION = "7d";
 const AUTH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
