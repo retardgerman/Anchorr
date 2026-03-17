@@ -366,22 +366,4 @@ export { getUsers, saveUser } from "./userStore.js";
 
 export { getUserMappings, saveUserMapping, deleteUserMapping } from "./userMappingStore.js";
 
-/**
- * Helper to normalize Seerr URL (removes /api/v1 suffix)
- * @param {string} url - Seerr URL
- * @returns {string} Normalized URL
- */
-export function normalizeSeerrUrl(url) {
-  if (!url) return "";
-  return url.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
-}
-
-/**
- * Helper to get full Seerr API URL (with /api/v1)
- * @param {string} url - Seerr base URL
- * @returns {string} Full API URL
- */
-export function getSeerrApiUrl(url) {
-  const base = normalizeSeerrUrl(url);
-  return base ? `${base}/api/v1` : "";
-}
+export { normalizeSeerrUrl, getSeerrApiUrl } from "./seerrUrl.js";
