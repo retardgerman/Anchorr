@@ -51,6 +51,7 @@ import {
 import { jellyfinPoller } from "./jellyfinPoller.js";
 import JellyfinWebSocketClient from "./jellyfinWebSocket.js";
 import { minutesToHhMm } from "./utils/time.js";
+import logRouter from "./routes/logRoutes.js";
 import { fetchOMDbData } from "./api/omdb.js";
 import {
   CONFIG_PATH,
@@ -2420,6 +2421,9 @@ function configureWebServer() {
   // Apply rate limiting to all API endpoints (except auth and webhooks)
   app.use("/api/", apiLimiter);
 
+  // Log routes
+  app.use("/api", logRouter);
+
   // Endpoint for Discord servers list (guilds)
   app.get("/api/discord/guilds", authenticateToken, async (req, res) => {
     try {
@@ -3739,115 +3743,6 @@ function configureWebServer() {
           Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + " MB",
       },
       timestamp: new Date().toISOString(),
-    });
-  });
-
-  // Parse log file and return formatted entries
-  function parseLogFile(filePath, limit = 1000) {
-    try {
-      if (!fs.existsSync(filePath)) {
-        return { entries: [], truncated: false };
-      }
-      const content = fs.readFileSync(filePath, "utf-8");
-      const lines = content.split("\n").filter((line) => line.trim());
-
-      // Keep only the last 'limit' entries
-      const truncated = lines.length > limit;
-      const relevantLines = lines.slice(-limit);
-
-      const entries = relevantLines.map((line) => {
-        // Parse Winston JSON logs
-        try {
-          const logEntry = JSON.parse(line);
-          return {
-            timestamp: logEntry.timestamp || "N/A",
-            level: logEntry.level || "unknown",
-            message: logEntry.message || "",
-          };
-        } catch {
-          // Fallback for non-JSON lines
-          const match = line.match(
-            /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\w+):\s+(.+)$/
-          );
-          if (match) {
-            return {
-              timestamp: match[1],
-              level: match[2],
-              message: match[3],
-            };
-          }
-          return {
-            timestamp: "N/A",
-            level: "unknown",
-            message: line,
-          };
-        }
-      });
-
-      return { entries, truncated };
-    } catch (error) {
-      logger.error("Error parsing log file:", error);
-      return { entries: [], truncated: false };
-    }
-  }
-
-  // API endpoint for error logs
-  app.get("/api/logs/error", authenticateToken, (req, res) => {
-    const logsDir = path.join(process.cwd(), "logs");
-    // Find the current error log file (error-YYYY-MM-DD.log)
-    let errorLogPath = path.join(logsDir, "error.log");
-
-    // Try to find the latest rotated error log file
-    try {
-      const files = fs.readdirSync(logsDir);
-      const errorFiles = files.filter(
-        (f) => f.startsWith("error-") && f.endsWith(".log")
-      );
-      if (errorFiles.length > 0) {
-        errorFiles.sort().reverse();
-        errorLogPath = path.join(logsDir, errorFiles[0]);
-      }
-    } catch (e) {
-      // Fallback to default path
-    }
-
-    const { entries, truncated } = parseLogFile(errorLogPath);
-    res.json({
-      file: path.basename(errorLogPath),
-      count: entries.length,
-      total: truncated ? "1000+" : entries.length,
-      truncated,
-      entries,
-    });
-  });
-
-  // API endpoint for all logs
-  app.get("/api/logs/all", authenticateToken, (req, res) => {
-    const logsDir = path.join(process.cwd(), "logs");
-    // Find the current combined log file (combined-YYYY-MM-DD.log)
-    let combinedLogPath = path.join(logsDir, "combined.log");
-
-    // Try to find the latest rotated combined log file
-    try {
-      const files = fs.readdirSync(logsDir);
-      const combinedFiles = files.filter(
-        (f) => f.startsWith("combined-") && f.endsWith(".log")
-      );
-      if (combinedFiles.length > 0) {
-        combinedFiles.sort().reverse();
-        combinedLogPath = path.join(logsDir, combinedFiles[0]);
-      }
-    } catch (e) {
-      // Fallback to default path
-    }
-
-    const { entries, truncated } = parseLogFile(combinedLogPath);
-    res.json({
-      file: path.basename(combinedLogPath),
-      count: entries.length,
-      total: truncated ? "1000+" : entries.length,
-      truncated,
-      entries,
     });
   });
 
