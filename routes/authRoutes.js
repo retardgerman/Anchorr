@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import { login, register, logout, checkAuth } from "../utils/auth.js";
 
 const router = Router();

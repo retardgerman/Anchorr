@@ -3,6 +3,7 @@ import axios from "axios";
 import { authenticateToken } from "../utils/auth.js";
 import { isMaskedValue } from "../utils/configSanitize.js";
 import { TIMEOUTS } from "../lib/constants.js";
+import { getSeerrApiUrl, normalizeSeerrUrl } from "../utils/seerrUrl.js";
 import * as seerrApi from "../api/seerr.js";
 import logger from "../utils/logger.js";
 
@@ -25,10 +26,7 @@ router.get("/seerr-users", authenticateToken, async (req, res) => {
       });
     }
 
-    let baseUrl = seerrUrl.replace(/\/$/, "");
-    if (!baseUrl.endsWith("/api/v1")) {
-      baseUrl += "/api/v1";
-    }
+    const baseUrl = getSeerrApiUrl(seerrUrl);
 
     logger.debug("[SEERR USERS API] Making request to:", `${baseUrl}/user`);
 
@@ -64,7 +62,7 @@ router.get("/seerr-users", authenticateToken, async (req, res) => {
       .map((user) => {
         let avatar = user.avatar || null;
         if (avatar && !avatar.startsWith("http")) {
-          avatar = `${seerrUrl.replace(/\/api\/v1$/, "")}${avatar}`;
+          avatar = `${normalizeSeerrUrl(seerrUrl)}${avatar}`;
         }
         return {
           id: user.id,
@@ -96,10 +94,7 @@ router.post("/test-seerr", authenticateToken, async (req, res) => {
   }
 
   try {
-    let baseUrl = url.replace(/\/$/, "");
-    if (!baseUrl.endsWith("/api/v1")) {
-      baseUrl += "/api/v1";
-    }
+    const baseUrl = getSeerrApiUrl(url);
 
     const response = await axios.get(`${baseUrl}/settings/about`, {
       headers: { "X-Api-Key": effectiveApiKey },
@@ -124,10 +119,7 @@ router.post("/seerr/quality-profiles", authenticateToken, async (req, res) => {
   }
 
   try {
-    let baseUrl = url.replace(/\/$/, "");
-    if (!baseUrl.endsWith("/api/v1")) {
-      baseUrl += "/api/v1";
-    }
+    const baseUrl = getSeerrApiUrl(url);
 
     const profiles = await seerrApi.fetchQualityProfiles(baseUrl, effectiveApiKey);
     res.json({ success: true, profiles });
@@ -145,10 +137,7 @@ router.post("/seerr/servers", authenticateToken, async (req, res) => {
   }
 
   try {
-    let baseUrl = url.replace(/\/$/, "");
-    if (!baseUrl.endsWith("/api/v1")) {
-      baseUrl += "/api/v1";
-    }
+    const baseUrl = getSeerrApiUrl(url);
 
     const servers = await seerrApi.fetchServers(baseUrl, effectiveApiKey);
     res.json({ success: true, servers });

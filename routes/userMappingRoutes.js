@@ -5,8 +5,8 @@ import {
   getUserMappings,
   saveUserMapping,
   deleteUserMapping,
+  loadConfigToEnv,
 } from "../utils/configFile.js";
-import { loadConfigToEnv } from "../utils/configFile.js";
 import logger from "../utils/logger.js";
 
 const router = Router();
