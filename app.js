@@ -43,6 +43,7 @@ import { minutesToHhMm } from "./utils/time.js";
 import logRouter from "./routes/logRoutes.js";
 import authRouter from "./routes/authRoutes.js";
 import userMappingRouter from "./routes/userMappingRoutes.js";
+import configRouter from "./routes/configRoutes.js";
 import { fetchOMDbData } from "./api/omdb.js";
 import {
   CONFIG_PATH,
@@ -53,6 +54,7 @@ import {
   saveUserMapping,
   deleteUserMapping,
 } from "./utils/configFile.js";
+import { SENSITIVE_FIELDS, isMaskedValue } from "./utils/configSanitize.js";
 
 // --- Helper Functions ---
 function isValidUrl(string) {
@@ -63,49 +65,6 @@ function isValidUrl(string) {
   } catch (_) {
     return false;
   }
-}
-
-// --- Config Sanitization (Defense-in-depth) ---
-const MASKED_PREFIX = "••••••••";
-const SENSITIVE_FIELDS = [
-  "DISCORD_TOKEN",
-  "SEERR_API_KEY",
-  "JELLYFIN_API_KEY",
-  "TMDB_API_KEY",
-  "OMDB_API_KEY",
-];
-const STRIPPED_FIELDS = ["JWT_SECRET", "WEBHOOK_SECRET"];
-
-function maskSecret(value) {
-  if (!value || typeof value !== "string") return "";
-  return value.length > 4
-    ? MASKED_PREFIX + value.slice(-4)
-    : MASKED_PREFIX;
-}
-
-function isMaskedValue(value) {
-  return typeof value === "string" && value.startsWith(MASKED_PREFIX);
-}
-
-function sanitizeConfigForClient(config) {
-  if (!config) return config;
-  const sanitized = { ...config };
-
-  for (const field of SENSITIVE_FIELDS) {
-    if (sanitized[field]) {
-      sanitized[field] = maskSecret(sanitized[field]);
-    }
-  }
-  for (const field of STRIPPED_FIELDS) {
-    delete sanitized[field];
-  }
-
-  // Strip password hashes from USERS array
-  if (Array.isArray(sanitized.USERS)) {
-    sanitized.USERS = sanitized.USERS.map(({ password, ...user }) => user);
-  }
-
-  return sanitized;
 }
 
 // --- CONFIGURATION ---
@@ -2406,6 +2365,9 @@ function configureWebServer() {
   // User mapping routes
   app.use("/api", userMappingRouter);
 
+  // Config/language routes
+  app.use("/api", configRouter);
+
   // Endpoint for Discord servers list (guilds)
   app.get("/api/discord/guilds", authenticateToken, async (req, res) => {
     try {
@@ -2947,69 +2909,6 @@ function configureWebServer() {
     } catch (error) {
       logger.error(`❌ Error processing Jellyfin webhook (ItemType: ${req.body?.ItemType}, Name: ${req.body?.Name}):`, error);
       // Don't send error response since we already sent 200
-    }
-  });
-
-  app.get("/api/config", authenticateToken, (req, res) => {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.setHeader("Surrogate-Control", "no-store");
-    const config = readConfig();
-    if (config) {
-      res.json(sanitizeConfigForClient(config));
-    } else {
-      res.json(sanitizeConfigForClient(configTemplate));
-    }
-  });
-
-  // Return webhook secret for copy-to-clipboard (stripped from /api/config)
-  app.get("/api/webhook-secret", authenticateToken, (req, res) => {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.setHeader("Surrogate-Control", "no-store");
-    res.json({ secret: WEBHOOK_SECRET || null });
-  });
-
-  // Get available languages dynamically from locales directory
-  app.get("/api/languages", async (req, res) => {
-    try {
-      const localesDir = path.join(process.cwd(), "locales");
-      const files = fs.readdirSync(localesDir);
-
-      const languages = [];
-
-      for (const file of files) {
-        if (file.endsWith('.json') && file !== 'template.json') {
-          try {
-            const langPath = path.join(localesDir, file);
-            const langData = JSON.parse(fs.readFileSync(langPath, 'utf8'));
-
-            if (langData._meta && langData._meta.language_code && langData._meta.language_name) {
-              languages.push({
-                code: langData._meta.language_code,
-                name: langData._meta.language_name
-              });
-            }
-          } catch (error) {
-            logger.warn(`Failed to parse language file ${file}: ${error.message}`);
-          }
-        }
-      }
-
-      // Sort by language name
-      languages.sort((a, b) => a.name.localeCompare(b.name));
-
-      res.json(languages);
-    } catch (error) {
-      logger.error(`Failed to load available languages: ${error.message}`);
-      // Return fallback languages
-      res.json([
-        { code: 'en', name: 'English' },
-        { code: 'de', name: 'Deutsch' },
-        { code: 'sv', name: 'Svenska' }
-      ]);
     }
   });
 
