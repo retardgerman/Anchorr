@@ -491,7 +491,7 @@ export function registerInteractions(client) {
                   .toLowerCase()
                   .includes(focusedValue.toLowerCase());
               })
-              .slice(0, 25);
+              .slice(0, 10);
 
             const trendingChoices = await Promise.all(
               filtered.map(async (item) => {
@@ -583,7 +583,7 @@ export function registerInteractions(client) {
             .filter(
               (r) => r.media_type === "movie" || r.media_type === "tv"
             )
-            .slice(0, 25);
+            .slice(0, 10);
 
           const detailedChoices = await Promise.all(
             filtered.map(async (item) => {

@@ -55,7 +55,7 @@ router.post("/jellyfin-libraries", authenticateToken, async (req, res) => {
     res.json({ success: true, libraries });
   } catch (err) {
     logger.error("[JELLYFIN LIBRARIES API] Error:", err);
-    res.json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

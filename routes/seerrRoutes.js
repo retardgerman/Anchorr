@@ -42,7 +42,7 @@ router.get("/seerr-users", authenticateToken, async (req, res) => {
     let response;
     try {
       logger.info("[SEERR USERS API] Fetching users from Seerr (real-time)...");
-      response = await axios.get(`${baseUrl}/user?take=` + Number.MAX_SAFE_INTEGER, {
+      response = await axios.get(`${baseUrl}/user?take=1000`, {
         headers: { "X-Api-Key": apiKey },
         timeout: TIMEOUTS.SEERR_API,
       });
@@ -91,7 +91,7 @@ router.get("/seerr-users", authenticateToken, async (req, res) => {
       logger.error("[SEERR USERS API] Response status:", err.response.status);
       logger.error("[SEERR USERS API] Response data:", err.response.data);
     }
-    res.json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
