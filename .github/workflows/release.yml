@@ -32,17 +32,9 @@ jobs:
 
       - name: Extract changelog entry
         if: steps.check.outputs.exists == 'false'
-        id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Extract the block between this version's heading and the next
-          BODY=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          # Pass multiline string to output
-          {
-            echo "body<<EOF"
-            echo "$BODY"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md > release-notes.md
 
       - name: Create pre-release
         if: steps.check.outputs.exists == 'false'
@@ -51,6 +43,6 @@ jobs:
         run: |
           gh release create "v${{ steps.version.outputs.version }}" \
             --title "v${{ steps.version.outputs.version }}" \
-            --notes "${{ steps.changelog.outputs.body }}" \
+            --notes-file release-notes.md \
             --prerelease \
             --target main
