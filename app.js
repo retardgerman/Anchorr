@@ -178,7 +178,7 @@ const app = express();
 let port = process.env.WEBHOOK_PORT || 8282;
 
 if (process.env.TRUST_PROXY === "true") {
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
 }
 
 function configureWebServer() {
