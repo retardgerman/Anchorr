@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Translation sanitizer**: Rewritten with a DOM-based allowlist parser, closing several XSS bypass vectors
 - **Misc**: Partial API key no longer logged; request payload logging removed; TMDB IDs validated as integers; GitHub Actions workflow permissions scoped to least-privilege
 
+### 🚀 Added
+
+- **Series poster and episode overview in single-episode notifications**: Jellyfin webhook notifications for individual episodes now show the series poster and episode overview instead of generic placeholders
+
 ### ⚠️ Migration Notes
 
 **Docker Compose users:** Add `BIND_HOST=0.0.0.0` to your `environment:` section. If you use the included `docker-compose.yml`, no action needed.
