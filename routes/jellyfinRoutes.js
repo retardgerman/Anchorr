@@ -33,8 +33,10 @@ router.post("/jellyfin-libraries", authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid URL. Must be http or https." });
     }
 
+    const safeUrl = new URL(url);
+    safeUrl.pathname = safeUrl.pathname.replace(/\/$/, "") + "/Library/VirtualFolders";
     const response = await axios.get(
-      `${url.replace(/\/$/, "")}/Library/MediaFolders`,
+      safeUrl.href,
       {
         headers: { "X-MediaBrowser-Token": apiKey },
         timeout: TIMEOUTS.JELLYFIN_API,
@@ -70,8 +72,9 @@ router.post("/test-jellyfin", authenticateToken, async (req, res) => {
   }
 
   try {
-    const testUrl = `${url.replace(/\/$/, "")}/System/Info/Public`;
-    const response = await axios.get(testUrl, { timeout: TIMEOUTS.JELLYFIN_API });
+    const safeUrl = new URL(url);
+    safeUrl.pathname = safeUrl.pathname.replace(/\/$/, "") + "/System/Info/Public";
+    const response = await axios.get(safeUrl.href, { timeout: TIMEOUTS.JELLYFIN_API });
 
     if (response.data?.ServerName && response.data?.Version) {
       return res.json({

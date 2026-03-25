@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.6] - 2026-03-25
+
+### 🔒 Security
+
+- **Web dashboard binds to localhost by default**: Bare-metal installs now bind to `127.0.0.1` instead of all interfaces. Set `BIND_HOST=0.0.0.0` if you need external access (Docker Compose does this automatically)
+- **Rate limiting**: `/start-bot`, `/stop-bot`, and `/auth/check` are now rate-limited
+- **SSRF hardening**: All URLs passed to axios are now constructed via `URL` object pathname manipulation instead of string interpolation
+- **Translation sanitizer**: Rewritten with a DOM-based allowlist parser, closing several XSS bypass vectors
+- **Misc**: Partial API key no longer logged; request payload logging removed; TMDB IDs validated as integers; GitHub Actions workflow permissions scoped to least-privilege
+
+### ⚠️ Migration Notes
+
+**Docker Compose users:** Add `BIND_HOST=0.0.0.0` to your `environment:` section. If you use the included `docker-compose.yml`, no action needed.
+
+---
+
 ## [1.4.5] - 2026-03-21
 
 ### 🐛 Fixed

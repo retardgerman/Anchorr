@@ -132,9 +132,9 @@ function cleanTitle(title) {
 
   // Remove metadata patterns like [tvdbid-123], [imdbid-123], (?)
   return title
-    .replace(/\s*\[tvdbid-\d+\]\s*/gi, "")
-    .replace(/\s*\[imdbid-\d+\]\s*/gi, "")
-    .replace(/\s*\(\?\)\s*$/, "")
+    .replace(/\[tvdbid-\d+\]/gi, "")
+    .replace(/\[imdbid-\d+\]/gi, "")
+    .replace(/\(\?\)$/, "")
     .trim();
 }
 
@@ -246,10 +246,11 @@ async function processAndSendNotification(
       logger.debug(`Using cached TMDB data for ${tmdbId}`);
     } else {
       try {
+        const tmdbIdNum = parseInt(tmdbId, 10);
         const res = await axios.get(
           `https://api.themoviedb.org/3/${
             ItemType === "Movie" ? "movie" : "tv"
-          }/${tmdbId}`,
+          }/${tmdbIdNum}`,
           {
             params: {
               api_key: process.env.TMDB_API_KEY,
@@ -428,8 +429,13 @@ async function processAndSendNotification(
   embed.setColor(embedColor);
 
   // Add fields based on ItemType
-  if (ItemType === "Episode" || ItemType === "Season") {
-    // Episodes and Seasons: No fields, just title and optional list below
+  if (ItemType === "Episode" && episodeCount <= 1) {
+    // Single episode: show overview
+    if (showOverview && overviewText) {
+      embed.addFields({ name: "Episode Summary", value: overviewText });
+    }
+  } else if (ItemType === "Season") {
+    // Seasons: no fields
   } else {
     // Movies and Series: Summary, Genre, Runtime, Rating
     const fields = [];
@@ -519,6 +525,12 @@ async function processAndSendNotification(
   
   if (showBackdrop && isValidUrl(backdrop)) {
     embed.setImage(backdrop);
+  }
+
+  // Series poster thumbnail for single episode notifications
+  if (ItemType === "Episode" && episodeCount <= 1 && details?.poster_path) {
+    const posterUrl = `https://image.tmdb.org/t/p/w500${details.poster_path}`;
+    if (isValidUrl(posterUrl)) embed.setThumbnail(posterUrl);
   }
 
   const buttonComponents = [];
