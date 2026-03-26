@@ -43,15 +43,16 @@ router.post("/jellyfin-libraries", authenticateToken, async (req, res) => {
       }
     );
 
-    const libraries = response.data.Items.map((item) => ({
+    const items = Array.isArray(response.data) ? response.data : (response.data.Items ?? []);
+    const libraries = items.map((item) => ({
       id: item.Id,
       name: item.Name,
       type: item.CollectionType || "unknown",
     }));
 
-    if (response.data.Items?.length > 0) {
-      libraryCache.set(response.data.Items);
-      logger.info(`[LIBRARY CACHE] Updated cache with ${response.data.Items.length} libraries`);
+    if (items.length > 0) {
+      libraryCache.set(items);
+      logger.info(`[LIBRARY CACHE] Updated cache with ${items.length} libraries`);
     }
 
     res.json({ success: true, libraries });
