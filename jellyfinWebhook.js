@@ -864,6 +864,19 @@ export async function handleJellyfinWebhook(req, res, client, pendingRequests, o
       }
     }
 
+    // Resolve CollectionId → ItemId if needed (Jellyfin webhook payload may send CollectionId
+    // while config stores VirtualFolder ItemId as the key)
+    if (libraryId && !isTestNotification) {
+      const cachedLibs = libraryCache.get();
+      if (cachedLibs) {
+        const match = cachedLibs.find((lib) => lib.CollectionId === libraryId);
+        if (match) {
+          logger.debug(`🔄 Resolved CollectionId ${libraryId} → ItemId ${match.ItemId}`);
+          libraryId = match.ItemId;
+        }
+      }
+    }
+
     // Parse notification libraries from config (supports both array and object format)
     let notificationLibraries = {};
     let libraryChannelId = null;

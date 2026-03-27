@@ -65,7 +65,7 @@ router.get("/seerr-users", authenticateToken, async (req, res) => {
         : response.data.results?.length || "N/A"
     );
 
-    const userData = response.data.results || [];
+    const userData = Array.isArray(response.data) ? response.data : (response.data.results || []);
 
     const users = userData
       .map((user) => {

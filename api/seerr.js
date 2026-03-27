@@ -8,9 +8,7 @@ import logger from "../utils/logger.js";
 import { TIMEOUTS, CACHE_TTL } from "../lib/constants.js";
 import { getSeerrApiUrl } from "../utils/seerrUrl.js";
 
-// Cache for root folders, tags, quality profiles, and servers
-let rootFoldersCache = null;
-let rootFoldersCacheTime = 0;
+// Cache for tags, quality profiles, and servers
 let tagsCache = null;
 let tagsCacheTime = 0;
 let qualityProfilesCache = null;
@@ -150,7 +148,7 @@ export async function checkMediaStatus(
 
     const response = await axios.get(url, {
       headers: { "X-Api-Key": apiKey },
-      timeout: TIMEOUTS.TMDB_API,
+      timeout: TIMEOUTS.SEERR_API,
     });
 
     // For movies, simple check
@@ -227,48 +225,6 @@ export async function checkMediaStatus(
 }
 
 /**
- * Fetch root folders from Radarr/Sonarr via Seerr
- * @param {string} seerrUrl - Seerr API URL
- * @param {string} apiKey - Seerr API key
- * @returns {Promise<Array>} Root folders
- */
-export async function fetchRootFolders(seerrUrl, apiKey) {
-  const now = Date.now();
-
-  // Return cached folders if still valid
-  if (rootFoldersCache && now - rootFoldersCacheTime < CACHE_TTL.ROOT_FOLDERS) {
-    return rootFoldersCache;
-  }
-
-  try {
-    const folders = await fetchFromServers(
-      seerrUrl,
-      apiKey,
-      true,
-      (server, details, type) => {
-        if (!details?.rootFolder) return [];
-        return details.rootFolder.map((folder) => ({
-          id: folder.id,
-          path: folder.path,
-          serverId: server.id,
-          serverName: server.name || `${type === "radarr" ? "Radarr" : "Sonarr"} ${server.id}`,
-          type,
-        }));
-      }
-    );
-
-    rootFoldersCache = folders;
-    rootFoldersCacheTime = now;
-
-    logger.info(`✅ Fetched ${folders.length} root folders from Seerr`);
-    return folders;
-  } catch (err) {
-    logger.warn("Failed to fetch root folders:", err?.message);
-    return rootFoldersCache || [];
-  }
-}
-
-/**
  * Fetch tags from Radarr/Sonarr via Seerr
  * @param {string} seerrUrl - Seerr API URL
  * @param {string} apiKey - Seerr API key
@@ -329,7 +285,7 @@ export async function fetchServers(seerrUrl, apiKey) {
       seerrUrl,
       apiKey,
       false,
-      (server, details, type) => ({
+      (server, _details, type) => ({
         id: server.id,
         name: server.name || `${type === "radarr" ? "Radarr" : "Sonarr"} ${server.id}`,
         isDefault: server.isDefault || false,

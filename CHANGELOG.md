@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### 🐛 Fixed
+
+- **Library channel mapping broken when using per-library Discord channels**: The config UI was saving `item.Id` (undefined on VirtualFolder objects) as the library key in `JELLYFIN_NOTIFICATION_LIBRARIES`. Jellyfin's `/Library/VirtualFolders` endpoint returns `ItemId`, not `Id`, so all channel lookups silently failed and notifications were either skipped or always routed to the default channel
+- **Channel mapping mismatch for Jellyfin webhook source**: Jellyfin webhook payloads may send `CollectionId` as `LibraryId`, while the config stores `VirtualFolder ItemId` as the key. Added a resolution step so webhook-sourced library IDs are correctly mapped before the channel lookup
+- **Poller library fallback broken**: `findLibraryId` was called with `libraryIds` (a `Set`) instead of the required `Map<id, libraryObject>`, causing the traversal fallback to always return `undefined`
+- **Seerr users not loading in User Mapping UI**: `response.data.results` assumed a paginated response, but some Seerr variants return a plain array — fixed to handle both formats
+- **Wrong timeout constant in `checkMediaStatus`**: Used `TIMEOUTS.TMDB_API` instead of `TIMEOUTS.SEERR_API` for a Seerr API call (both are 8000ms, so no behavioral difference, but now correctly named)
+- **`JELLYFIN_BASE_URL` typo in library route**: `GET /jellyfin/libraries` was reading `process.env.JELLYFIN_URL` (undefined) instead of `JELLYFIN_BASE_URL`, always returning 400
+
+### 🏗️ Code Quality
+
+- **Removed dead code from discarded Seerr webhook feature**: `fetchRootFolders`, its module-level cache variables, and `CACHE_TTL.ROOT_FOLDERS` were never called anywhere and have been removed
+- **`EMBED_COLOR_SEASON` added to config template**: The season embed color was read from env but missing from `lib/config.js`, making it non-configurable via the dashboard
+
+---
+
 ## [1.4.6] - 2026-03-25
 
 ### 🔒 Security

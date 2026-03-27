@@ -91,6 +91,13 @@ class JellyfinPoller {
 
       const { libraries, libraryIds, libraryIdMap } = await fetchLibraryMap();
 
+      // Build a full libraryMap (id → object) for findLibraryId fallback
+      const libraryObjectMap = new Map();
+      for (const lib of libraries) {
+        libraryObjectMap.set(lib.CollectionId, lib);
+        if (lib.ItemId !== lib.CollectionId) libraryObjectMap.set(lib.ItemId, lib);
+      }
+
       logger.info(
         `📚 Found ${libraries.length} libraries: ${libraries.map((l) => l.Name).join(", ")}`
       );
@@ -168,10 +175,10 @@ class JellyfinPoller {
           logger.info(`✅ ParentId matched a known library: ${libraryId}`);
         } else if (item.ParentId) {
           logger.info(`⚠️ ParentId ${item.ParentId} not in library set, traversing up...`);
-          libraryId = await jellyfinApi.findLibraryId(itemId, apiKey, baseUrl, libraryIds);
+          libraryId = await jellyfinApi.findLibraryId(itemId, apiKey, baseUrl, libraryObjectMap);
         } else {
           logger.info(`⚠️ No ParentId provided, traversing up from item ${itemId}...`);
-          libraryId = await jellyfinApi.findLibraryId(itemId, apiKey, baseUrl, libraryIds);
+          libraryId = await jellyfinApi.findLibraryId(itemId, apiKey, baseUrl, libraryObjectMap);
         }
 
         logger.info(`🔍 Processing ${itemType} "${item.Name}" - Detected LibraryId: ${libraryId}`);
