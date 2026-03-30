@@ -2480,7 +2480,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       // Extract display names and avatar from the selected options
-      const discordMember = discordMembers.find((m) => m.id === discordUserId);
+      let discordMember = discordMembers.find((m) => m.id === discordUserId);
+
+      // If the ID was entered manually and isn't in the cached member list, look it up via the bot
+      if (manualId && !discordMember) {
+        try {
+          const lookupRes = await fetch(`/api/discord-user/${encodeURIComponent(manualId)}`);
+          const lookupData = await lookupRes.json();
+          if (lookupData.success) {
+            discordMember = {
+              id: lookupData.id,
+              username: lookupData.username,
+              displayName: lookupData.displayName,
+              avatar: lookupData.avatar,
+            };
+          } else {
+            showToast(`Could not resolve Discord user: ${lookupData.message}`);
+            return;
+          }
+        } catch (_err) {
+          showToast("Failed to look up Discord user.");
+          return;
+        }
+      }
       const seerrUser = seerrUsers.find(
         (u) => String(u.id) === String(seerrUserId)
       );
