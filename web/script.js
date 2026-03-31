@@ -2605,16 +2605,36 @@ document.addEventListener("DOMContentLoaded", async () => {
               (c, i) => `
             <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--surface1); cursor: pointer;">
               <input type="checkbox" class="auto-map-checkbox" data-index="${i}" checked style="width: 16px; height: 16px; flex-shrink: 0; cursor: pointer;">
-              ${c.seerrAvatar ? `<img src="${escapeHtml(c.seerrAvatar)}" onerror="this.style.display='none'" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">` : ""}
+              <div style="position: relative; width: 36px; height: 36px; flex-shrink: 0;">
+                ${c.seerrAvatar ? `<img src="${escapeHtml(c.seerrAvatar)}" onerror="this.style.display='none'" style="width:36px;height:36px;border-radius:50%;position:absolute;">` : ""}
+                <img id="auto-map-discord-avatar-${i}" src="" style="width:36px;height:36px;border-radius:50%;position:absolute;display:none;">
+              </div>
               <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 500; color: var(--text);">${escapeHtml(c.seerrDisplayName)}</div>
-                <div style="font-size: 0.8rem; color: var(--subtext0);">Discord ID: ${escapeHtml(c.discordId)}</div>
+                <div id="auto-map-discord-name-${i}" style="font-size: 0.8rem; color: var(--subtext0);">Discord ID: ${escapeHtml(c.discordId)}</div>
               </div>
             </label>`
             )
             .join("");
 
           modal._candidates = data.candidates;
+
+          // Resolve Discord names + avatars in the background
+          data.candidates.forEach(async (c, i) => {
+            try {
+              const r = await fetch(`/api/discord-user/${encodeURIComponent(c.discordId)}`);
+              if (!r.ok) return;
+              const u = await r.json();
+              if (!u.success) return;
+              const nameEl = document.getElementById(`auto-map-discord-name-${i}`);
+              const avatarEl = document.getElementById(`auto-map-discord-avatar-${i}`);
+              if (nameEl) nameEl.textContent = `@${u.username}${u.displayName !== u.username ? ` · ${u.displayName}` : ""}`;
+              if (avatarEl && u.avatar) {
+                avatarEl.src = u.avatar;
+                avatarEl.style.display = "block";
+              }
+            } catch (_e) { /* silently skip unresolvable users */ }
+          });
         }
 
         modal.style.display = "flex";
