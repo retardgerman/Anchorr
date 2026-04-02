@@ -2574,7 +2574,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Auto-Map from Seerr button
   const autoMapSeerrBtn = document.getElementById("auto-map-seerr-btn");
-  let autoMapAbortController = null;
 
   if (autoMapSeerrBtn) {
     autoMapSeerrBtn.addEventListener("click", async () => {
@@ -2610,54 +2609,25 @@ document.addEventListener("DOMContentLoaded", async () => {
           empty.style.display = "none";
           saveBtn.style.display = "";
 
+          // Discord names + avatars are resolved server-side during preview generation.
           list.innerHTML = data.candidates
             .map(
               (c, i) => `
             <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--surface1); cursor: pointer;">
               <input type="checkbox" class="auto-map-checkbox" data-index="${i}" checked style="width: 16px; height: 16px; flex-shrink: 0; cursor: pointer;">
               <div style="position: relative; width: 36px; height: 36px; flex-shrink: 0;">
-                ${c.seerrAvatar ? `<img src="${escapeHtml(c.seerrAvatar)}" onerror="this.style.display='none'" style="width:36px;height:36px;border-radius:50%;position:absolute;">` : ""}
-                <img id="auto-map-discord-avatar-${i}" src="" style="width:36px;height:36px;border-radius:50%;position:absolute;display:none;">
+                ${c.seerrAvatar && isSafeAvatarUrl(c.seerrAvatar) ? `<img src="${escapeHtml(c.seerrAvatar)}" onerror="this.style.display='none'" style="width:36px;height:36px;border-radius:50%;position:absolute;">` : ""}
+                ${c.discordAvatar && isSafeAvatarUrl(c.discordAvatar) ? `<img src="${escapeHtml(c.discordAvatar)}" style="width:36px;height:36px;border-radius:50%;position:absolute;">` : ""}
               </div>
               <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 500; color: var(--text);">${escapeHtml(c.seerrDisplayName)}</div>
-                <div id="auto-map-discord-name-${i}" style="font-size: 0.8rem; color: var(--subtext0);">Discord ID: ${escapeHtml(c.discordId)}</div>
+                <div style="font-size: 0.8rem; color: var(--subtext0);">${c.discordUsername ? escapeHtml(`@${c.discordUsername}${c.discordDisplayName !== c.discordUsername ? ` · ${c.discordDisplayName}` : ""}`) : escapeHtml(`Discord ID: ${c.discordId}`)}</div>
               </div>
             </label>`
             )
             .join("");
 
           modal._candidates = data.candidates;
-
-          // Resolve Discord names + avatars in the background (aborted on modal close).
-          // Promises are intentionally fire-and-forget; failures only affect display enrichment.
-          if (autoMapAbortController) autoMapAbortController.abort();
-          autoMapAbortController = new AbortController();
-          const { signal } = autoMapAbortController;
-
-          data.candidates.forEach(async (c, i) => {
-            try {
-              const r = await fetch(`/api/discord-user/${encodeURIComponent(c.discordId)}`, { signal });
-              if (!r.ok) {
-                console.warn("[AUTO-MAP] Discord user lookup failed", c.discordId, r.status);
-                return;
-              }
-              const u = await r.json();
-              if (!u.success) {
-                console.warn("[AUTO-MAP] Discord user lookup returned success=false", c.discordId, u.message);
-                return;
-              }
-              const nameEl = document.getElementById(`auto-map-discord-name-${i}`);
-              const avatarEl = document.getElementById(`auto-map-discord-avatar-${i}`);
-              if (nameEl) nameEl.textContent = `@${u.username}${u.displayName !== u.username ? ` · ${u.displayName}` : ""}`;
-              if (avatarEl && u.avatar && isSafeAvatarUrl(u.avatar)) {
-                avatarEl.src = u.avatar;
-                avatarEl.style.display = "block";
-              }
-            } catch (e) {
-              if (e.name !== "AbortError") console.warn("[AUTO-MAP] Could not resolve Discord user", c.discordId, e);
-            }
-          });
         }
 
         modal.style.display = "flex";
@@ -2677,10 +2647,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const autoMapModal = document.getElementById("auto-map-modal");
 
   function closeAutoMapModal() {
-    if (autoMapAbortController) {
-      autoMapAbortController.abort();
-      autoMapAbortController = null;
-    }
     autoMapModal.style.display = "none";
     autoMapModal._candidates = null;
   }

@@ -6,6 +6,7 @@ import { TIMEOUTS } from "../lib/constants.js";
 import { getSeerrApiUrl, normalizeSeerrUrl } from "../utils/seerrUrl.js";
 import * as seerrApi from "../api/seerr.js";
 import { getUserMappings } from "../utils/configFile.js";
+import { botState } from "../bot/botState.js";
 import logger from "../utils/logger.js";
 
 const router = Router();
@@ -219,6 +220,22 @@ router.get("/seerr/auto-map-preview", authenticateToken, async (_req, res) => {
           seerrAvatar: avatar,
           discordId,
         });
+      }
+    }
+
+    // Resolve Discord names + avatars server-side (sequential, cache-first) to avoid
+    // flooding the dashboard rate limiter with N parallel browser requests on each open.
+    if (botState.isBotRunning && botState.discordClient) {
+      for (const candidate of candidates) {
+        try {
+          const cached = botState.discordClient.users.cache.get(candidate.discordId);
+          const user = cached || await botState.discordClient.users.fetch(candidate.discordId);
+          candidate.discordUsername = user.username;
+          candidate.discordDisplayName = user.displayName ?? user.globalName ?? user.username;
+          candidate.discordAvatar = user.displayAvatarURL({ size: 64, extension: "png" });
+        } catch (err) {
+          logger.warn(`[AUTO-MAP] Could not resolve Discord user ${candidate.discordId}:`, err.message);
+        }
       }
     }
 
