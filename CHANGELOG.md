@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Content-Security-Policy header added**: The dashboard now sends a `Content-Security-Policy` header restricting scripts to `'self'` and `cdn.jsdelivr.net`, styles to `'self'`, `cdnjs.cloudflare.com`, and `cdn.jsdelivr.net`, and blocking all plugins (`object-src 'none'`). Inline `<script>` and `<style>` blocks in `index.html` have been moved to `script.js` and `style.css` respectively so no `'unsafe-inline'` is needed
 - **Dockerfile: container no longer runs as root**: `USER app` is now active. The non-root `app` user was already created and the app directory already chowned — the directive was previously commented out. **Migration required for existing installs** — see below
+- **SSRF: config-test routes now reject private/loopback IPs**: `isAllowedUrl()` in the Jellyfin and Seerr config-test routes previously only checked for `http:`/`https:` protocol. It now also rejects private IPv4 ranges (`10.x`, `172.16–31.x`, `192.168.x`, `169.254.x`), loopback (`127.x`, `0.x`), and hostname-based loopback (`localhost`, `::1`)
+- **Cookie Secure flag no longer bypassable via spoofed header**: The `auth_token` cookie's `Secure` flag was set based on `req.secure || req.headers["x-forwarded-proto"] === "https"`, allowing any client to fake HTTPS over plain HTTP by sending the header. It now uses only `req.secure`, which Express derives correctly when `TRUST_PROXY` is configured
+- **Dependencies updated**: `npm audit fix` resolved all known CVEs in transitive dependencies
 
 ### ⬆️ Migration
 

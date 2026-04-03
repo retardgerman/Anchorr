@@ -192,8 +192,9 @@ function configureWebServer() {
       [
         "default-src 'self'",
         "script-src 'self' cdn.jsdelivr.net",
-        // 'unsafe-inline' is required for the ~200 inline style attributes in index.html.
-        // script-src has no 'unsafe-inline', which is where CSP protection matters most.
+        // TODO: Remove 'unsafe-inline' from style-src once the ~200 inline style=""
+        // attributes in web/index.html are moved to web/style.css or covered by a nonce.
+        // script-src intentionally has no 'unsafe-inline', which is where CSP matters most.
         "style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net",
         "font-src cdnjs.cloudflare.com cdn.jsdelivr.net",
         // img-src is permissive for http/https because Discord and Seerr avatars

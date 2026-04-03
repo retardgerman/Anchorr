@@ -11,7 +11,24 @@ const router = Router();
 function isAllowedUrl(url) {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    // Reject loopback hostnames
+    if (host === "localhost" || host === "::1" || host === "[::1]") return false;
+    // Reject private/loopback IPv4 ranges
+    const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4) {
+      const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+      if (
+        a === 0 ||                               // 0.x.x.x
+        a === 127 ||                             // 127.x.x.x loopback
+        a === 10 ||                              // 10.x.x.x private
+        (a === 172 && b >= 16 && b <= 31) ||     // 172.16–31.x.x private
+        (a === 192 && b === 168) ||              // 192.168.x.x private
+        (a === 169 && b === 254)                 // 169.254.x.x link-local
+      ) return false;
+    }
+    return true;
   } catch (_) {
     return false;
   }
